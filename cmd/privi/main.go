@@ -161,12 +161,7 @@ func main() {
 	oauthServer, oauthClient := setupOAuthServer(*domainPtr, *keyFilePtr)
 
 	// auth routes
-	mux.HandleFunc("/oauth-callback", func(w http.ResponseWriter, r *http.Request) {
-		if err := oauthServer.HandleCallback(w, r); err != nil {
-			log.Error().Err(err).Msg("error handling oauth callback")
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-		}
-	})
+	mux.HandleFunc("/oauth-callback", oauthServer.HandleCallback)
 	mux.HandleFunc("/client-metadata.json", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Add("Content-Type", "application/json")
 		err := json.NewEncoder(w).Encode(oauthClient.ClientMetadata())
@@ -175,12 +170,7 @@ func main() {
 			return
 		}
 	})
-	mux.HandleFunc("/oauth/authorize", func(w http.ResponseWriter, r *http.Request) {
-		if err := oauthServer.HandleAuthorize(w, r); err != nil {
-			log.Error().Err(err).Msg("error handling oauth authorize request")
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-		}
-	})
+	mux.HandleFunc("/oauth/authorize", oauthServer.HandleAuthorize)
 	mux.HandleFunc("/oauth/token", oauthServer.HandleToken)
 
 	s := &http.Server{
