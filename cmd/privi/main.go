@@ -158,7 +158,10 @@ func main() {
 		}
 	})
 
-	oauthServer, oauthClient := setupOAuthServer(*domainPtr, *keyFilePtr)
+	_ /*oauthProvider to pass to privi*/, oauthServer, oauthClient := setupOAuthServer(
+		*domainPtr,
+		*keyFilePtr,
+	)
 
 	// auth routes
 	mux.HandleFunc("/oauth-callback", oauthServer.HandleCallback)
@@ -223,7 +226,7 @@ func setupPriviServer() *privi.Server {
 func setupOAuthServer(
 	domain string,
 	keyFile string,
-) (*oauthserver.OAuthServer, auth.OAuthClient) {
+) (*oauthserver.Provider, *oauthserver.OAuthServer, auth.OAuthClient) {
 	// Read JWK from file
 	jwkBytes, err := os.ReadFile(keyFile)
 	if err != nil {
@@ -261,7 +264,7 @@ func setupOAuthServer(
 		jwkBytes,                                  /*secretJwk*/
 	)
 
-	return oauthserver.NewOAuthServer(
+	return oauthProvider, oauthserver.NewOAuthServer(
 		oauthProvider,
 		oauthClient,
 		sessions.NewCookieStore([]byte("my super secret signing password")),

@@ -23,7 +23,10 @@ func TestOAuthServerE2E(t *testing.T) {
 	oauthClient := oauthserver.NewDummyOAuthClient(t, serverMetadata)
 	defer oauthClient.Close()
 
+	provider := oauthserver.NewProvider()
+
 	oauthServer := oauthserver.NewOAuthServer(
+		provider,
 		oauthClient,
 		sessions.NewCookieStore(securecookie.GenerateRandomKey(32)),
 		auth.NewDummyDirectory("http://pds.url"),
@@ -39,6 +42,8 @@ func TestOAuthServerE2E(t *testing.T) {
 		case "/token":
 			oauthServer.HandleToken(w, r)
 			return
+		case "/resource":
+			provider.Validate([]string{}, w, r)
 		default:
 			t.Errorf("unknown server path: %s", r.URL.Path)
 			w.WriteHeader(http.StatusNotFound)
@@ -113,4 +118,13 @@ func TestOAuthServerE2E(t *testing.T) {
 	require.NoError(t, json.Unmarshal(respBytes, token), "failed to decode token")
 
 	require.NotEmpty(t, token.AccessToken, "access token should not be empty")
+
+	oauthClientCtx := context.WithValue(context.Background(), oauth2.HTTPClient, server.Client())
+	client := config.Client(oauthClientCtx, token)
+
+	resp, err := client.Get(server.URL + "/resource")
+	require.NoError(t, err, "failed to make resource request")
+	respBytes, err = io.ReadAll(resp.Body)
+	require.NoError(t, err, "failed to read response body")
+	require.Equal(t, http.StatusOK, resp.StatusCode, "resource request failed: %s", respBytes)
 }

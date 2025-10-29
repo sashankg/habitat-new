@@ -34,15 +34,55 @@ type authRequestFlash struct {
 	AuthorizeState *auth.AuthorizeState // AT Protocol authorization state
 }
 
+type Provider struct{ p fosite.OAuth2Provider }
+
+func NewProvider() *Provider {
+	storage := newStore()
+	config := &fosite.Config{
+		GlobalSecret:               []byte("my super secret signing password"),
+		SendDebugMessagesToClients: true,
+	}
+	return &Provider{
+		p: compose.Compose(
+			config,
+			storage,
+			compose.NewOAuth2HMACStrategy(config),
+			compose.OAuth2AuthorizeExplicitFactory,
+			compose.OAuth2RefreshTokenGrantFactory,
+			compose.OAuth2PKCEFactory,
+			compose.OAuth2TokenIntrospectionFactory,
+		),
+	}
+}
+
+func (p *Provider) Validate(
+	scopes []string,
+	w http.ResponseWriter,
+	r *http.Request,
+) (did string, ok bool) {
+	ctx := r.Context()
+	_, ar, err := p.p.IntrospectToken(
+		r.Context(),
+		fosite.AccessTokenFromRequest(r),
+		fosite.AccessToken,
+		&fosite.DefaultSession{},
+		scopes...,
+	)
+	if err != nil {
+		p.p.WriteIntrospectionError(ctx, w, err)
+		return "", false
+	}
+	return ar.GetSession().GetSubject(), true
+}
+
 // OAuthServer implements an OAuth 2.0 authorization server with AT Protocol integration.
 // It handles OAuth authorization flows, token issuance, and integrates with DPoP
 // for proof-of-possession token binding.
 type OAuthServer struct {
-	storage      *store                // Token and authorization code storage
-	provider     fosite.OAuth2Provider // Underlying OAuth 2.0 provider implementation
-	sessionStore sessions.Store        // Session storage for authorization flow state
-	oauthClient  auth.OAuthClient      // Client for communicating with AT Protocol services
-	directory    identity.Directory    // AT Protocol identity directory for handle resolution
+	provider     *Provider
+	sessionStore sessions.Store     // Session storage for authorization flow state
+	oauthClient  auth.OAuthClient   // Client for communicating with AT Protocol services
+	directory    identity.Directory // AT Protocol identity directory for handle resolution
 }
 
 // NewOAuthServer creates a new OAuth 2.0 authorization server instance.
@@ -60,28 +100,15 @@ type OAuthServer struct {
 //
 // Returns a configured OAuthServer ready to handle authorization requests.
 func NewOAuthServer(
+	provider *Provider,
 	oauthClient auth.OAuthClient,
 	sessionStore sessions.Store,
 	directory identity.Directory,
 ) *OAuthServer {
-	storage := newStore()
-	config := &fosite.Config{
-		GlobalSecret:               []byte("my super secret signing password"),
-		SendDebugMessagesToClients: true,
-	}
-	provider := compose.Compose(
-		config,
-		storage,
-		compose.NewOAuth2HMACStrategy(config),
-		compose.OAuth2AuthorizeExplicitFactory,
-		compose.OAuth2RefreshTokenGrantFactory,
-		compose.OAuth2PKCEFactory,
-	)
 	// Register types for session serialization
 	gob.Register(&authRequestFlash{})
 	gob.Register(auth.AuthorizeState{})
 	return &OAuthServer{
-		storage:      storage,
 		provider:     provider,
 		oauthClient:  oauthClient,
 		sessionStore: sessionStore,
@@ -109,9 +136,9 @@ func (o *OAuthServer) HandleAuthorize(
 	r *http.Request,
 ) {
 	ctx := r.Context()
-	requester, err := o.provider.NewAuthorizeRequest(ctx, r)
+	requester, err := o.provider.p.NewAuthorizeRequest(ctx, r)
 	if err != nil {
-		o.provider.WriteAuthorizeError(ctx, w, requester, err)
+		o.provider.p.WriteAuthorizeError(ctx, w, requester, err)
 		return
 	}
 	if r.ParseForm() != nil {
@@ -205,7 +232,7 @@ func (o *OAuthServer) HandleCallback(
 		utils.LogAndHTTPError(w, err, "failed to recreate request", http.StatusBadRequest)
 		return
 	}
-	authRequest, err := o.provider.NewAuthorizeRequest(ctx, recreatedRequest)
+	authRequest, err := o.provider.p.NewAuthorizeRequest(ctx, recreatedRequest)
 	if err != nil {
 		utils.LogAndHTTPError(w, err, "failed to recreate request", http.StatusBadRequest)
 		return
@@ -226,7 +253,7 @@ func (o *OAuthServer) HandleCallback(
 		utils.LogAndHTTPError(w, err, "failed to exchange code", http.StatusInternalServerError)
 		return
 	}
-	resp, err := o.provider.NewAuthorizeResponse(
+	resp, err := o.provider.p.NewAuthorizeResponse(
 		ctx,
 		authRequest,
 		newAuthCodeSession(arf.Form.Get("handle"), dpopKey, tokenInfo),
@@ -235,7 +262,7 @@ func (o *OAuthServer) HandleCallback(
 		utils.LogAndHTTPError(w, err, "failed to create response", http.StatusInternalServerError)
 		return
 	}
-	o.provider.WriteAuthorizeResponse(r.Context(), w, authRequest, resp)
+	o.provider.p.WriteAuthorizeResponse(r.Context(), w, authRequest, resp)
 }
 
 // HandleToken processes OAuth 2.0 token requests from the client.
@@ -257,17 +284,17 @@ func (o *OAuthServer) HandleToken(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Access-Control-Allow-Origin", r.Header.Get("Origin"))
 	ctx := r.Context()
 	var session authCodeSession
-	req, err := o.provider.NewAccessRequest(ctx, r, &session)
+	req, err := o.provider.p.NewAccessRequest(ctx, r, &session)
 	if err != nil {
-		o.provider.WriteAccessError(ctx, w, req, err)
+		o.provider.p.WriteAccessError(ctx, w, req, err)
 		return
 	}
-	resp, err := o.provider.NewAccessResponse(ctx, req)
+	resp, err := o.provider.p.NewAccessResponse(ctx, req)
 	if err != nil {
-		o.provider.WriteAccessError(ctx, w, req, err)
+		o.provider.p.WriteAccessError(ctx, w, req, err)
 		return
 	}
-	o.provider.WriteAccessResponse(ctx, w, req, resp)
+	o.provider.p.WriteAccessResponse(ctx, w, req, resp)
 }
 
 // This simple implementation stores a single nonce value in memory.
