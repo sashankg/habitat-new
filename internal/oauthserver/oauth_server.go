@@ -20,7 +20,8 @@ import (
 )
 
 const (
-	// sessionName is the name used for storing authorization session data.
+	// this is the cookie name.
+	// TODO: hardcoding this means that only one oauth flow can be in progress at a time
 	sessionName = "auth-session"
 )
 
