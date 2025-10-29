@@ -4,7 +4,6 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -14,6 +13,8 @@ import (
 	"os"
 
 	jose "github.com/go-jose/go-jose/v3"
+	"gorm.io/driver/sqlite"
+	"gorm.io/gorm"
 
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/eagraf/habitat-new/internal/auth"
@@ -82,35 +83,13 @@ func main() {
 		*repoPathPtr,
 	)
 
-	// Create database file if it does not exist
-	// TODO: this should really be taken in as an argument or env variable
-	priviRepoPath := *repoPathPtr
-	_, err := os.Stat(priviRepoPath)
-	if errors.Is(err, os.ErrNotExist) {
-		fmt.Println("Privi repo file does not exist; creating...")
-		_, err := os.Create(priviRepoPath)
-		if err != nil {
-			log.Err(err).Msgf("unable to create privi repo file at %s", priviRepoPath)
-		}
-	} else if err != nil {
-		log.Err(err).Msgf("error finding privi repo file")
-	}
-
-	priviDB, err := sql.Open("sqlite3", priviRepoPath)
-	if err != nil {
-		log.Fatal().Err(err).Msg("unable to open sqlite file backing privi server")
-	}
-
-	repo, err := privi.NewSQLiteRepo(priviDB)
-	if err != nil {
-		log.Fatal().Err(err).Msg("unable to setup privi sqlite db")
-	}
-
-	adapter, err := permissions.NewSQLiteStore(priviDB)
-	if err != nil {
-		log.Fatal().Err(err).Msg("unable to setup permissions store")
-	}
-	priviServer := privi.NewServer(adapter, repo)
+	db := setupDB()
+	_ /*oauthProvider to pass to privi*/, oauthServer, oauthClient := setupOAuthServer(
+		*domainPtr,
+		*keyFilePtr,
+		db,
+	)
+	priviServer := setupPriviServer(db)
 
 	mux := http.NewServeMux()
 
@@ -158,11 +137,6 @@ func main() {
 		}
 	})
 
-	_ /*oauthProvider to pass to privi*/, oauthServer, oauthClient := setupOAuthServer(
-		*domainPtr,
-		*keyFilePtr,
-	)
-
 	// auth routes
 	mux.HandleFunc("/oauth-callback", oauthServer.HandleCallback)
 	mux.HandleFunc("/client-metadata.json", func(w http.ResponseWriter, r *http.Request) {
@@ -182,7 +156,7 @@ func main() {
 	}
 
 	fmt.Println("Starting server on port :" + *portPtr)
-	err = s.ListenAndServeTLS(
+	err := s.ListenAndServeTLS(
 		fmt.Sprintf("%s%s", *certsFilePtr, "fullchain.pem"),
 		fmt.Sprintf("%s%s", *certsFilePtr, "privkey.pem"),
 	)
@@ -191,7 +165,7 @@ func main() {
 	}
 }
 
-func setupPriviServer() *privi.Server {
+func setupDB() *gorm.DB {
 	// Create database file if it does not exist
 	// TODO: this should really be taken in as an argument or env variable
 	priviRepoPath := *repoPathPtr
@@ -206,17 +180,25 @@ func setupPriviServer() *privi.Server {
 		log.Err(err).Msgf("error finding privi repo file")
 	}
 
-	priviDB, err := sql.Open("sqlite3", priviRepoPath)
+	priviDB, err := gorm.Open(sqlite.Open(priviRepoPath))
 	if err != nil {
 		log.Fatal().Err(err).Msg("unable to open sqlite file backing privi server")
 	}
 
-	repo, err := privi.NewSQLiteRepo(priviDB)
+	return priviDB
+}
+
+func setupPriviServer(gormDb *gorm.DB) *privi.Server {
+	db, err := gormDb.DB()
+	if err != nil {
+		log.Fatal().Err(err).Msg("unable to setup privi sqlite db")
+	}
+	repo, err := privi.NewSQLiteRepo(db)
 	if err != nil {
 		log.Fatal().Err(err).Msg("unable to setup privi sqlite db")
 	}
 
-	adapter, err := permissions.NewSQLiteStore(priviDB)
+	adapter, err := permissions.NewSQLiteStore(db)
 	if err != nil {
 		log.Fatal().Err(err).Msg("unable to setup permissions store")
 	}
@@ -226,6 +208,7 @@ func setupPriviServer() *privi.Server {
 func setupOAuthServer(
 	domain string,
 	keyFile string,
+	db *gorm.DB,
 ) (*oauthserver.Provider, *oauthserver.OAuthServer, auth.OAuthClient) {
 	// Read JWK from file
 	jwkBytes, err := os.ReadFile(keyFile)
@@ -255,7 +238,7 @@ func setupOAuthServer(
 		log.Info().Msgf("created key file at %s", keyFile)
 	}
 
-	oauthProvider := oauthserver.NewProvider()
+	oauthProvider := oauthserver.NewProvider(db)
 
 	oauthClient, err := auth.NewOAuthClient(
 		"https://"+domain+"/client-metadata.json", /*clientId*/

@@ -15,6 +15,8 @@ import (
 	"github.com/gorilla/sessions"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/oauth2"
+	"gorm.io/driver/sqlite"
+	"gorm.io/gorm"
 )
 
 func TestOAuthServerE2E(t *testing.T) {
@@ -23,7 +25,10 @@ func TestOAuthServerE2E(t *testing.T) {
 	oauthClient := oauthserver.NewDummyOAuthClient(t, serverMetadata)
 	defer oauthClient.Close()
 
-	provider := oauthserver.NewProvider()
+	db, err := gorm.Open(sqlite.Open(":memory:"))
+	require.NoError(t, err)
+
+	provider := oauthserver.NewProvider(db)
 
 	oauthServer := oauthserver.NewOAuthServer(
 		provider,
@@ -43,7 +48,8 @@ func TestOAuthServerE2E(t *testing.T) {
 			oauthServer.HandleToken(w, r)
 			return
 		case "/resource":
-			provider.Validate([]string{}, w, r)
+			_, ok := provider.Validate([]string{}, w, r)
+			require.True(t, ok, "failed to validate token")
 		default:
 			t.Errorf("unknown server path: %s", r.URL.Path)
 			w.WriteHeader(http.StatusNotFound)
@@ -93,7 +99,7 @@ func TestOAuthServerE2E(t *testing.T) {
 	)
 	defer clientApp.Close()
 
-	// Set the client app's OAuth configuration not that we know the url
+	// Set the client app's OAuth configuration now that we know the url
 	config.ClientID = clientApp.URL + "/client-metadata.json"
 	config.RedirectURL = clientApp.URL + "/callback"
 
@@ -108,8 +114,8 @@ func TestOAuthServerE2E(t *testing.T) {
 	server.Client().Jar = jar
 
 	result, err := server.Client().Do(authRequest)
-	defer func() { require.NoError(t, result.Body.Close()) }()
 	require.NoError(t, err, "failed to make authorize request")
+	defer func() { require.NoError(t, result.Body.Close()) }()
 	respBytes, err := io.ReadAll(result.Body)
 	require.NoError(t, err, "failed to read response body")
 	require.Equal(t, http.StatusOK, result.StatusCode, "authorize request failed: %s", respBytes)

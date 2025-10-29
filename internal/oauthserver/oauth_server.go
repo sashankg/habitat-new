@@ -17,6 +17,7 @@ import (
 	"github.com/gorilla/sessions"
 	"github.com/ory/fosite"
 	"github.com/ory/fosite/compose"
+	"gorm.io/gorm"
 )
 
 const (
@@ -36,8 +37,8 @@ type authRequestFlash struct {
 
 type Provider struct{ p fosite.OAuth2Provider }
 
-func NewProvider() *Provider {
-	storage := newStore()
+func NewProvider(db *gorm.DB) *Provider {
+	storage := newStore(db)
 	config := &fosite.Config{
 		GlobalSecret:               []byte("my super secret signing password"),
 		SendDebugMessagesToClients: true,
@@ -256,7 +257,7 @@ func (o *OAuthServer) HandleCallback(
 	resp, err := o.provider.p.NewAuthorizeResponse(
 		ctx,
 		authRequest,
-		newAuthCodeSession(arf.Form.Get("handle"), dpopKey, tokenInfo),
+		newAuthCodeSession(arf.Form.Get("handle"), arf.DpopKey, tokenInfo),
 	)
 	if err != nil {
 		utils.LogAndHTTPError(w, err, "failed to create response", http.StatusInternalServerError)

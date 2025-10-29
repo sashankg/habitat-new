@@ -1,7 +1,6 @@
 package oauthserver
 
 import (
-	"crypto/ecdsa"
 	"time"
 
 	"github.com/eagraf/habitat-new/internal/auth"
@@ -9,26 +8,23 @@ import (
 )
 
 type authCodeSession struct {
-	ExpiresAt    time.Time
-	DpopKey      *ecdsa.PrivateKey
-	AccessToken  string
-	RefreshToken string
-	Subject      string
+	Subject   string
+	ExpiresAt time.Time
+	DpopKey   []byte
+	TokenInfo *auth.TokenResponse
 }
 
 var _ fosite.Session = (*authCodeSession)(nil)
 
 func newAuthCodeSession(
 	subject string,
-	dpopKey *ecdsa.PrivateKey,
+	dpopKey []byte,
 	tokenInfo *auth.TokenResponse,
 ) *authCodeSession {
 	return &authCodeSession{
-		Subject:      subject,
-		ExpiresAt:    time.Now().UTC().Add(time.Duration(tokenInfo.ExpiresIn)),
-		DpopKey:      dpopKey,
-		AccessToken:  tokenInfo.AccessToken,
-		RefreshToken: tokenInfo.RefreshToken,
+		Subject:   subject,
+		DpopKey:   dpopKey,
+		TokenInfo: tokenInfo,
 	}
 }
 

@@ -8,10 +8,14 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gorm.io/driver/sqlite"
+	"gorm.io/gorm"
 )
 
 func TestGetClient(t *testing.T) {
-	store := newStore()
+	db, err := gorm.Open(sqlite.Open(":memory:"))
+	require.NoError(t, err)
+	store := newStore(db)
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		t.Logf("url: %s", r.Host)
