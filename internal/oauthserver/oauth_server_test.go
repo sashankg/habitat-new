@@ -3,6 +3,7 @@ package oauthserver_test
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/cookiejar"
 	"net/http/httptest"
@@ -104,10 +105,12 @@ func TestOAuthServerE2E(t *testing.T) {
 	result, err := server.Client().Do(authRequest)
 	defer func() { require.NoError(t, result.Body.Close()) }()
 	require.NoError(t, err, "failed to make authorize request")
-	require.Equal(t, http.StatusOK, result.StatusCode)
+	respBytes, err := io.ReadAll(result.Body)
+	require.NoError(t, err, "failed to read response body")
+	require.Equal(t, http.StatusOK, result.StatusCode, "authorize request failed: %s", respBytes)
 
 	token := &oauth2.Token{}
-	require.NoError(t, json.NewDecoder(result.Body).Decode(token), "failed to decode token")
+	require.NoError(t, json.Unmarshal(respBytes, token), "failed to decode token")
 
 	require.NotEmpty(t, token.AccessToken, "access token should not be empty")
 }
