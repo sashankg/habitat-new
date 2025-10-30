@@ -7,6 +7,7 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"encoding/gob"
+	"encoding/json"
 	"net/http"
 	"net/url"
 
@@ -80,7 +81,7 @@ func (p *Provider) Validate(
 // It handles OAuth authorization flows, token issuance, and integrates with DPoP
 // for proof-of-possession token binding.
 type OAuthServer struct {
-	provider     *Provider
+	provider     fosite.OAuth2Provider
 	sessionStore sessions.Store     // Session storage for authorization flow state
 	oauthClient  auth.OAuthClient   // Client for communicating with AT Protocol services
 	directory    identity.Directory // AT Protocol identity directory for handle resolution
@@ -101,16 +102,29 @@ type OAuthServer struct {
 //
 // Returns a configured OAuthServer ready to handle authorization requests.
 func NewOAuthServer(
-	provider *Provider,
+	db *gorm.DB,
 	oauthClient auth.OAuthClient,
 	sessionStore sessions.Store,
 	directory identity.Directory,
 ) *OAuthServer {
+	storage := newStore(db)
+	config := &fosite.Config{
+		GlobalSecret:               []byte("my super secret signing password"),
+		SendDebugMessagesToClients: true,
+	}
 	// Register types for session serialization
 	gob.Register(&authRequestFlash{})
 	gob.Register(auth.AuthorizeState{})
 	return &OAuthServer{
-		provider:     provider,
+		provider: compose.Compose(
+			config,
+			storage,
+			compose.NewOAuth2HMACStrategy(config),
+			compose.OAuth2AuthorizeExplicitFactory,
+			compose.OAuth2RefreshTokenGrantFactory,
+			compose.OAuth2PKCEFactory,
+			compose.OAuth2TokenIntrospectionFactory,
+		),
 		oauthClient:  oauthClient,
 		sessionStore: sessionStore,
 		directory:    directory,
@@ -137,9 +151,9 @@ func (o *OAuthServer) HandleAuthorize(
 	r *http.Request,
 ) {
 	ctx := r.Context()
-	requester, err := o.provider.p.NewAuthorizeRequest(ctx, r)
+	requester, err := o.provider.NewAuthorizeRequest(ctx, r)
 	if err != nil {
-		o.provider.p.WriteAuthorizeError(ctx, w, requester, err)
+		o.provider.WriteAuthorizeError(ctx, w, requester, err)
 		return
 	}
 	if r.ParseForm() != nil {
@@ -233,7 +247,7 @@ func (o *OAuthServer) HandleCallback(
 		utils.LogAndHTTPError(w, err, "failed to recreate request", http.StatusBadRequest)
 		return
 	}
-	authRequest, err := o.provider.p.NewAuthorizeRequest(ctx, recreatedRequest)
+	authRequest, err := o.provider.NewAuthorizeRequest(ctx, recreatedRequest)
 	if err != nil {
 		utils.LogAndHTTPError(w, err, "failed to recreate request", http.StatusBadRequest)
 		return
@@ -254,16 +268,16 @@ func (o *OAuthServer) HandleCallback(
 		utils.LogAndHTTPError(w, err, "failed to exchange code", http.StatusInternalServerError)
 		return
 	}
-	resp, err := o.provider.p.NewAuthorizeResponse(
+	resp, err := o.provider.NewAuthorizeResponse(
 		ctx,
 		authRequest,
-		newAuthCodeSession(arf.Form.Get("handle"), arf.DpopKey, tokenInfo),
+		newAuthSession(arf.Form.Get("handle"), arf.DpopKey, tokenInfo),
 	)
 	if err != nil {
 		utils.LogAndHTTPError(w, err, "failed to create response", http.StatusInternalServerError)
 		return
 	}
-	o.provider.p.WriteAuthorizeResponse(r.Context(), w, authRequest, resp)
+	o.provider.WriteAuthorizeResponse(r.Context(), w, authRequest, resp)
 }
 
 // HandleToken processes OAuth 2.0 token requests from the client.
@@ -284,18 +298,62 @@ func (o *OAuthServer) HandleCallback(
 func (o *OAuthServer) HandleToken(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Access-Control-Allow-Origin", r.Header.Get("Origin"))
 	ctx := r.Context()
-	var session authCodeSession
-	req, err := o.provider.p.NewAccessRequest(ctx, r, &session)
+	req, err := o.provider.NewAccessRequest(ctx, r, &fosite.DefaultSession{})
 	if err != nil {
-		o.provider.p.WriteAccessError(ctx, w, req, err)
+		o.provider.WriteAccessError(ctx, w, req, err)
 		return
 	}
-	resp, err := o.provider.p.NewAccessResponse(ctx, req)
+	resp, err := o.provider.NewAccessResponse(ctx, req)
 	if err != nil {
-		o.provider.p.WriteAccessError(ctx, w, req, err)
+		o.provider.WriteAccessError(ctx, w, req, err)
 		return
 	}
-	o.provider.p.WriteAccessResponse(ctx, w, req, resp)
+	o.provider.WriteAccessResponse(ctx, w, req, resp)
+}
+
+func (o *OAuthServer) HandleClientMetadata(w http.ResponseWriter, r *http.Request) {
+	w.Header().Add("Content-Type", "application/json")
+	err := json.NewEncoder(w).Encode(o.oauthClient.ClientMetadata())
+	if err != nil {
+		utils.LogAndHTTPError(
+			w,
+			err,
+			"failed to encode client metadata",
+			http.StatusInternalServerError,
+		)
+		return
+	}
+}
+
+func (o *OAuthServer) Validate(
+	w http.ResponseWriter,
+	r *http.Request,
+	scopes ...string,
+) (did string, client *auth.DpopHttpClient, ok bool) {
+	ctx := r.Context()
+	_, ar, err := o.provider.IntrospectToken(
+		r.Context(),
+		fosite.AccessTokenFromRequest(r),
+		fosite.AccessToken,
+		nil,
+		scopes...,
+	)
+	if err != nil {
+		o.provider.WriteIntrospectionError(ctx, w, err)
+		return "", nil, false
+	}
+	session := ar.GetSession().(*authSession)
+	dpopKey, err := ecdsa.ParseRawPrivateKey(elliptic.P256(), session.DpopKey)
+	if err != nil {
+		utils.LogAndHTTPError(w, err, "failed to parse dpop key", http.StatusBadRequest)
+		return
+	}
+
+	return session.Subject, auth.NewDpopHttpClient(
+		dpopKey,
+		&nonceProvider{},
+		auth.WithAccessToken(session.TokenInfo.AccessToken),
+	), true
 }
 
 // This simple implementation stores a single nonce value in memory.

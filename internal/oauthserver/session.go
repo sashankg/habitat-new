@@ -7,21 +7,21 @@ import (
 	"github.com/ory/fosite"
 )
 
-type authCodeSession struct {
+type authSession struct {
 	Subject   string
 	ExpiresAt time.Time
 	DpopKey   []byte
 	TokenInfo *auth.TokenResponse
 }
 
-var _ fosite.Session = (*authCodeSession)(nil)
+var _ fosite.Session = (*authSession)(nil)
 
-func newAuthCodeSession(
+func newAuthSession(
 	subject string,
 	dpopKey []byte,
 	tokenInfo *auth.TokenResponse,
-) *authCodeSession {
-	return &authCodeSession{
+) *authSession {
+	return &authSession{
 		Subject:   subject,
 		DpopKey:   dpopKey,
 		TokenInfo: tokenInfo,
@@ -29,26 +29,26 @@ func newAuthCodeSession(
 }
 
 // Clone implements fosite.Session.
-func (s *authCodeSession) Clone() fosite.Session {
+func (s *authSession) Clone() fosite.Session {
 	return s
 }
 
 // GetExpiresAt implements fosite.Session.
-func (s *authCodeSession) GetExpiresAt(key fosite.TokenType) time.Time {
+func (s *authSession) GetExpiresAt(key fosite.TokenType) time.Time {
 	return s.ExpiresAt
 }
 
 // GetSubject implements fosite.Session.
-func (s *authCodeSession) GetSubject() string {
+func (s *authSession) GetSubject() string {
 	return s.Subject
 }
 
 // GetUsername implements fosite.Session.
-func (s *authCodeSession) GetUsername() string {
+func (s *authSession) GetUsername() string {
 	return s.Subject
 }
 
 // SetExpiresAt implements fosite.Session.
-func (s *authCodeSession) SetExpiresAt(key fosite.TokenType, exp time.Time) {
+func (s *authSession) SetExpiresAt(key fosite.TokenType, exp time.Time) {
 	s.ExpiresAt = exp
 }

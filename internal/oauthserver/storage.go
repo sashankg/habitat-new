@@ -73,7 +73,7 @@ func (s *store) CreateAccessTokenSession(
 	signature string,
 	request fosite.Requester,
 ) (err error) {
-	acs := request.GetSession().(*authCodeSession)
+	acs := request.GetSession().(*authSession)
 	return s.db.Create(&AccessTokenSession{
 		Signature:    signature,
 		Subject:      acs.Subject,
@@ -124,12 +124,14 @@ func (s *store) GetAccessTokenSession(
 	if err != nil {
 		return nil, err
 	}
+	sess := newAuthSession(ats.Subject, ats.DpopKey, &auth.TokenResponse{
+		AccessToken:  ats.AccessToken,
+		RefreshToken: ats.RefreshToken,
+	})
+	sess.ExpiresAt = ats.ExpiresAt
 	return &fosite.AccessRequest{
 		Request: fosite.Request{
-			Session: &fosite.DefaultSession{
-				ExpiresAt: map[fosite.TokenType]time.Time{fosite.AccessToken: ats.ExpiresAt},
-				Subject:   ats.Subject,
-			},
+			Session: sess,
 		},
 	}, nil
 }

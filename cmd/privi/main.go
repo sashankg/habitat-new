@@ -84,26 +84,16 @@ func main() {
 	)
 
 	db := setupDB()
-	_ /*oauthProvider to pass to privi*/, oauthServer, oauthClient := setupOAuthServer(
-		*domainPtr,
-		*keyFilePtr,
-		db,
-	)
+	oauthServer := setupOAuthServer(*domainPtr, *keyFilePtr, db)
 	priviServer := setupPriviServer(db)
 
 	mux := http.NewServeMux()
 
-	loggingMiddleware := func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			x, err := httputil.DumpRequest(r, true)
-			if err != nil {
-				http.Error(w, fmt.Sprint(err), http.StatusInternalServerError)
-				return
-			}
-			fmt.Println("Got a request: ", string(x))
-			next.ServeHTTP(w, r)
-		})
-	}
+	// auth routes
+	mux.HandleFunc("/oauth-callback", oauthServer.HandleCallback)
+	mux.HandleFunc("/client-metadata.json", oauthServer.HandleClientMetadata)
+	mux.HandleFunc("/oauth/authorize", oauthServer.HandleAuthorize)
+	mux.HandleFunc("/oauth/token", oauthServer.HandleToken)
 
 	// privi routes
 	mux.HandleFunc("/xrpc/com.habitat.putRecord", priviServer.PutRecord)
@@ -139,14 +129,7 @@ func main() {
 
 	// auth routes
 	mux.HandleFunc("/oauth-callback", oauthServer.HandleCallback)
-	mux.HandleFunc("/client-metadata.json", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Add("Content-Type", "application/json")
-		err := json.NewEncoder(w).Encode(oauthClient.ClientMetadata())
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-	})
+	mux.HandleFunc("/client-metadata.json", oauthServer.HandleClientMetadata)
 	mux.HandleFunc("/oauth/authorize", oauthServer.HandleAuthorize)
 	mux.HandleFunc("/oauth/token", oauthServer.HandleToken)
 
@@ -209,7 +192,7 @@ func setupOAuthServer(
 	domain string,
 	keyFile string,
 	db *gorm.DB,
-) (*oauthserver.Provider, *oauthserver.OAuthServer, auth.OAuthClient) {
+) *oauthserver.OAuthServer {
 	// Read JWK from file
 	jwkBytes, err := os.ReadFile(keyFile)
 	if err != nil {
@@ -238,8 +221,6 @@ func setupOAuthServer(
 		log.Info().Msgf("created key file at %s", keyFile)
 	}
 
-	oauthProvider := oauthserver.NewProvider(db)
-
 	oauthClient, err := auth.NewOAuthClient(
 		"https://"+domain+"/client-metadata.json", /*clientId*/
 		"https://"+domain,                         /*clientUri*/
@@ -247,10 +228,22 @@ func setupOAuthServer(
 		jwkBytes,                                  /*secretJwk*/
 	)
 
-	return oauthProvider, oauthserver.NewOAuthServer(
-		oauthProvider,
+	return oauthserver.NewOAuthServer(
+		db,
 		oauthClient,
 		sessions.NewCookieStore([]byte("my super secret signing password")),
 		identity.DefaultDirectory(),
-	), oauthClient
+	)
+}
+
+func loggingMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		x, err := httputil.DumpRequest(r, true)
+		if err != nil {
+			http.Error(w, fmt.Sprint(err), http.StatusInternalServerError)
+			return
+		}
+		fmt.Println("Got a request: ", string(x))
+		next.ServeHTTP(w, r)
+	})
 }
