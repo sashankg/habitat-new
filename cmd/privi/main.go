@@ -171,11 +171,7 @@ func setupDB() *gorm.DB {
 	return priviDB
 }
 
-func setupPriviServer(gormDb *gorm.DB) *privi.Server {
-	db, err := gormDb.DB()
-	if err != nil {
-		log.Fatal().Err(err).Msg("unable to setup privi sqlite db")
-	}
+func setupPriviServer(db *gorm.DB) *privi.Server {
 	repo, err := privi.NewSQLiteRepo(db)
 	if err != nil {
 		log.Fatal().Err(err).Msg("unable to setup privi sqlite db")
