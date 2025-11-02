@@ -40,6 +40,9 @@ func main() {
 }
 
 func run(_ context.Context, cmd *cli.Command) error {
+	for _, flag := range cmd.FlagNames() {
+		log.Info().Msgf("%s: %v", flag, cmd.Value(flag))
+	}
 	db := setupDB(cmd)
 	oauthServer := setupOAuthServer(cmd, db)
 	priviServer := setupPriviServer(db)
