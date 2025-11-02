@@ -40,6 +40,7 @@ func main() {
 		Logf: func(format string, args ...any) {
 			log.Debug().Msgf(format, args...)
 		},
+		Dir: ".habitat/funnel/" + hostName,
 	}
 
 	ln, err := server.ListenFunnel("tcp", ":443")
