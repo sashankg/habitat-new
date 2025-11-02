@@ -119,6 +119,8 @@ func TestOAuthServerE2E(t *testing.T) {
 	token := &oauth2.Token{}
 	require.NoError(t, json.Unmarshal(respBytes, token), "failed to decode token")
 
+	t.Logf("token: %v, tokenlen: %d", token, len(token.AccessToken))
+
 	require.NotEmpty(t, token.AccessToken, "access token should not be empty")
 
 	oauthClientCtx := context.WithValue(context.Background(), oauth2.HTTPClient, server.Client())
