@@ -36,47 +36,6 @@ type authRequestFlash struct {
 	AuthorizeState *auth.AuthorizeState // AT Protocol authorization state
 }
 
-type Provider struct{ p fosite.OAuth2Provider }
-
-func NewProvider(db *gorm.DB) *Provider {
-	storage := newStore(db)
-	config := &fosite.Config{
-		GlobalSecret:               []byte("my super secret signing password"),
-		SendDebugMessagesToClients: true,
-	}
-	return &Provider{
-		p: compose.Compose(
-			config,
-			storage,
-			compose.NewOAuth2HMACStrategy(config),
-			compose.OAuth2AuthorizeExplicitFactory,
-			compose.OAuth2RefreshTokenGrantFactory,
-			compose.OAuth2PKCEFactory,
-			compose.OAuth2TokenIntrospectionFactory,
-		),
-	}
-}
-
-func (p *Provider) Validate(
-	scopes []string,
-	w http.ResponseWriter,
-	r *http.Request,
-) (did string, ok bool) {
-	ctx := r.Context()
-	_, ar, err := p.p.IntrospectToken(
-		r.Context(),
-		fosite.AccessTokenFromRequest(r),
-		fosite.AccessToken,
-		&fosite.DefaultSession{},
-		scopes...,
-	)
-	if err != nil {
-		p.p.WriteIntrospectionError(ctx, w, err)
-		return "", false
-	}
-	return ar.GetSession().GetSubject(), true
-}
-
 // OAuthServer implements an OAuth 2.0 authorization server with AT Protocol integration.
 // It handles OAuth authorization flows, token issuance, and integrates with DPoP
 // for proof-of-possession token binding.

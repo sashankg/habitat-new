@@ -1,12 +1,12 @@
 package main
 
 import (
+	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
 	"encoding/json"
 	"errors"
-	"flag"
 	"fmt"
 	"net/http"
 	"net/http/httputil"
@@ -23,68 +23,24 @@ import (
 	"github.com/eagraf/habitat-new/internal/privi"
 	"github.com/gorilla/sessions"
 	"github.com/rs/zerolog/log"
-)
-
-const (
-	defaultPort = "443"
-)
-
-var (
-	domainPtr = flag.String(
-		"domain",
-		"",
-		"The publicly available domain at which the server can be found",
-	)
-	repoPathPtr = flag.String(
-		"path",
-		"./repo.db",
-		"The path to the sqlite file to use as the backing database for this server",
-	)
-	portPtr = flag.String(
-		"port",
-		defaultPort,
-		"The port on which to run the server. Default 9000",
-	)
-	certsFilePtr = flag.String(
-		"certs",
-		"/etc/letsencrypt/live/habitat.network/",
-		"The directory in which TLS certs can be found. Should contain fullchain.pem and privkey.pem",
-	)
-	helpFlag = flag.Bool("help", false, "Display this menu.")
-
-	keyFilePtr = flag.String(
-		"key",
-		"privi.jwk",
-		"The path to the JWK file to use for signing tokens",
-	)
+	"github.com/urfave/cli/v3"
 )
 
 func main() {
-	flag.Parse()
-
-	if helpFlag != nil && *helpFlag {
-		flag.PrintDefaults()
-		os.Exit(0)
+	flags, mutuallyExclusiveFlags := getFlags()
+	cmd := &cli.Command{
+		Flags:                  flags,
+		MutuallyExclusiveFlags: mutuallyExclusiveFlags,
+		Action:                 run,
 	}
-
-	if domainPtr == nil || *domainPtr == "" {
-		fmt.Println("domain flag is required; -h to see help menu")
-		os.Exit(1)
-	} else if repoPathPtr == nil || *repoPathPtr == "" {
-		fmt.Println("No repo path specifiedl using default value ./repo.db")
-	} else if portPtr == nil || *portPtr == "" {
-		fmt.Printf("No port specified; using default %s\n", defaultPort)
-		*portPtr = defaultPort
+	if err := cmd.Run(context.Background(), os.Args); err != nil {
+		log.Fatal().Err(err).Msg("error running command")
 	}
+}
 
-	fmt.Printf(
-		"Using %s as domain and %s as repo path; starting private data server\n",
-		*domainPtr,
-		*repoPathPtr,
-	)
-
-	db := setupDB()
-	oauthServer := setupOAuthServer(*domainPtr, *keyFilePtr, db)
+func run(_ context.Context, cmd *cli.Command) error {
+	db := setupDB(cmd)
+	oauthServer := setupOAuthServer(cmd, db)
 	priviServer := setupPriviServer(db)
 
 	mux := http.NewServeMux()
@@ -119,7 +75,7 @@ func main() {
     }
   ]
 }`
-		domain := *domainPtr
+		domain := cmd.String(cDomain)
 		_, err := fmt.Fprintf(w, template, domain, domain)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -133,37 +89,37 @@ func main() {
 	mux.HandleFunc("/oauth/authorize", oauthServer.HandleAuthorize)
 	mux.HandleFunc("/oauth/token", oauthServer.HandleToken)
 
+	port := cmd.String(cPort)
 	s := &http.Server{
 		Handler: loggingMiddleware(mux),
-		Addr:    fmt.Sprintf(":%s", *portPtr),
+		Addr:    fmt.Sprintf(":%s", port),
 	}
 
-	fmt.Println("Starting server on port :" + *portPtr)
-	err := s.ListenAndServeTLS(
-		fmt.Sprintf("%s%s", *certsFilePtr, "fullchain.pem"),
-		fmt.Sprintf("%s%s", *certsFilePtr, "privkey.pem"),
-	)
-	if err != nil {
-		log.Fatal().Err(err).Msg("error serving http")
+	fmt.Println("Starting server on port :" + port)
+	certs := cmd.String(cHttpsCerts)
+	if certs == "" {
+		return s.ListenAndServe()
 	}
+	return s.ListenAndServeTLS(
+		fmt.Sprintf("%s%s", certs, "fullchain.pem"),
+		fmt.Sprintf("%s%s", certs, "privkey.pem"),
+	)
 }
 
-func setupDB() *gorm.DB {
-	// Create database file if it does not exist
-	// TODO: this should really be taken in as an argument or env variable
-	priviRepoPath := *repoPathPtr
-	_, err := os.Stat(priviRepoPath)
+func setupDB(cmd *cli.Command) *gorm.DB {
+	dbPath := cmd.String(cDb)
+	_, err := os.Stat(dbPath)
 	if errors.Is(err, os.ErrNotExist) {
 		fmt.Println("Privi repo file does not exist; creating...")
-		_, err := os.Create(priviRepoPath)
+		_, err := os.Create(dbPath)
 		if err != nil {
-			log.Err(err).Msgf("unable to create privi repo file at %s", priviRepoPath)
+			log.Err(err).Msgf("unable to create privi repo file at %s", dbPath)
 		}
 	} else if err != nil {
 		log.Err(err).Msgf("error finding privi repo file")
 	}
 
-	priviDB, err := gorm.Open(sqlite.Open(priviRepoPath))
+	priviDB, err := gorm.Open(sqlite.Open(dbPath))
 	if err != nil {
 		log.Fatal().Err(err).Msg("unable to open sqlite file backing privi server")
 	}
@@ -185,10 +141,10 @@ func setupPriviServer(db *gorm.DB) *privi.Server {
 }
 
 func setupOAuthServer(
-	domain string,
-	keyFile string,
+	cmd *cli.Command,
 	db *gorm.DB,
 ) *oauthserver.OAuthServer {
+	keyFile := cmd.String(cKeyFile)
 	// Read JWK from file
 	jwkBytes, err := os.ReadFile(keyFile)
 	if err != nil {
@@ -217,6 +173,7 @@ func setupOAuthServer(
 		log.Info().Msgf("created key file at %s", keyFile)
 	}
 
+	domain := cmd.String(cDomain)
 	oauthClient, err := auth.NewOAuthClient(
 		"https://"+domain+"/client-metadata.json", /*clientId*/
 		"https://"+domain,                         /*clientUri*/
