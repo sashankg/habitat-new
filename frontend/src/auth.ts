@@ -66,6 +66,10 @@ export class AuthManager {
     if (!this.accessToken) {
       throw new UnauthenticatedError();
     }
+    if (!headers) {
+      headers = new Headers();
+    }
+    headers.append("Habitat-Auth-Method", "oauth");
     const response = await client.fetchProtectedResource(
       this.config,
       this.accessToken,

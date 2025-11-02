@@ -45,7 +45,7 @@ func run(_ context.Context, cmd *cli.Command) error {
 	}
 	db := setupDB(cmd)
 	oauthServer := setupOAuthServer(cmd)
-	priviServer := setupPriviServer(db)
+	priviServer := setupPriviServer(db, oauthServer)
 
 	mux := http.NewServeMux()
 
@@ -89,7 +89,7 @@ func run(_ context.Context, cmd *cli.Command) error {
 
 	port := cmd.String(cPort)
 	s := &http.Server{
-		Handler: loggingMiddleware(mux),
+		Handler: corsMiddleware(loggingMiddleware(mux)),
 		Addr:    fmt.Sprintf(":%s", port),
 	}
 
@@ -122,7 +122,7 @@ func setupDB(cmd *cli.Command) *gorm.DB {
 	return priviDB
 }
 
-func setupPriviServer(db *gorm.DB) *privi.Server {
+func setupPriviServer(db *gorm.DB, oauthServer *oauthserver.OAuthServer) *privi.Server {
 	repo, err := privi.NewSQLiteRepo(db)
 	if err != nil {
 		log.Fatal().Err(err).Msg("unable to setup privi sqlite db")
@@ -132,7 +132,7 @@ func setupPriviServer(db *gorm.DB) *privi.Server {
 	if err != nil {
 		log.Fatal().Err(err).Msg("unable to setup permissions store")
 	}
-	return privi.NewServer(adapter, repo)
+	return privi.NewServer(adapter, repo, oauthServer)
 }
 
 func setupOAuthServer(cmd *cli.Command) *oauthserver.OAuthServer {
@@ -199,6 +199,23 @@ func loggingMiddleware(next http.Handler) http.Handler {
 			return
 		}
 		fmt.Println("Got a request: ", string(x))
+		next.ServeHTTP(w, r)
+	})
+}
+
+func corsMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, habitat-auth-method, User-Agent")
+		w.Header().Set("Access-Control-Max-Age", "86400") // Cache preflight for 24 hours
+
+		// Handle preflight OPTIONS request
+		if r.Method == "OPTIONS" {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+
 		next.ServeHTTP(w, r)
 	})
 }
