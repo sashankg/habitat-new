@@ -8,10 +8,15 @@ import (
 )
 
 type authSession struct {
-	Subject   string
-	ExpiresAt time.Time
-	DpopKey   []byte
-	TokenInfo *auth.TokenResponse
+	Subject     string
+	ExpiresAt   time.Time
+	DpopKey     []byte
+	TokenInfo   *auth.TokenResponse
+	ClientID    string
+	RedirectURI string
+	Scopes      []string
+	State       string
+	RequestedAt time.Time
 }
 
 var _ fosite.Session = (*authSession)(nil)

@@ -18,7 +18,6 @@ import (
 	"github.com/gorilla/sessions"
 	"github.com/ory/fosite"
 	"github.com/ory/fosite/compose"
-	"gorm.io/gorm"
 )
 
 const (
@@ -61,19 +60,17 @@ type OAuthServer struct {
 //
 // Returns a configured OAuthServer ready to handle authorization requests.
 func NewOAuthServer(
-	db *gorm.DB,
 	oauthClient auth.OAuthClient,
 	sessionStore sessions.Store,
 	directory identity.Directory,
 ) (*OAuthServer, error) {
-	storage, err := newStore(db)
-	if err != nil {
-		return nil, err
-	}
+	secret := []byte("my super secret signing password")
 	config := &fosite.Config{
-		GlobalSecret:               []byte("my super secret signing password"),
+		GlobalSecret:               secret,
 		SendDebugMessagesToClients: true,
 	}
+	strategy := newStrategy(secret)
+	storage := newStore(strategy)
 	// Register types for session serialization
 	gob.Register(&authRequestFlash{})
 	gob.Register(auth.AuthorizeState{})
@@ -81,7 +78,7 @@ func NewOAuthServer(
 		provider: compose.Compose(
 			config,
 			storage,
-			compose.NewOAuth2HMACStrategy(config),
+			strategy,
 			compose.OAuth2AuthorizeExplicitFactory,
 			compose.OAuth2RefreshTokenGrantFactory,
 			compose.OAuth2PKCEFactory,

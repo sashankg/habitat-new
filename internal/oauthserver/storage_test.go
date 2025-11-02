@@ -8,16 +8,10 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gorm.io/driver/sqlite"
-	"gorm.io/gorm"
 )
 
 func TestGetClient(t *testing.T) {
-	db, err := gorm.Open(sqlite.Open(":memory:"))
-	require.NoError(t, err)
-	store, err := newStore(db)
-	require.NoError(t, err)
-
+	store := newStore(newStrategy([]byte("test-secret")))
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		t.Logf("url: %s", r.Host)
 		if r.URL.Path == "/client-metadata.json" && r.Method == http.MethodGet {

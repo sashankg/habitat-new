@@ -15,8 +15,6 @@ import (
 	"github.com/gorilla/sessions"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/oauth2"
-	"gorm.io/driver/sqlite"
-	"gorm.io/gorm"
 )
 
 func TestOAuthServerE2E(t *testing.T) {
@@ -25,11 +23,7 @@ func TestOAuthServerE2E(t *testing.T) {
 	oauthClient := oauthserver.NewDummyOAuthClient(t, serverMetadata)
 	defer oauthClient.Close()
 
-	db, err := gorm.Open(sqlite.Open(":memory:"))
-	require.NoError(t, err)
-
 	oauthServer, err := oauthserver.NewOAuthServer(
-		db,
 		oauthClient,
 		sessions.NewCookieStore(securecookie.GenerateRandomKey(32)),
 		auth.NewDummyDirectory("http://pds.url"),
@@ -83,6 +77,8 @@ func TestOAuthServerE2E(t *testing.T) {
 				return
 			case "/callback":
 				ctx := context.WithValue(r.Context(), oauth2.HTTPClient, server.Client())
+				code := r.URL.Query().Get("code")
+				t.Logf("code: %s, codelen: %d", code, len(code))
 				token, err := config.Exchange(
 					ctx,
 					r.URL.Query().Get("code"),
