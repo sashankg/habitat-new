@@ -83,12 +83,6 @@ func run(_ context.Context, cmd *cli.Command) error {
 		}
 	})
 
-	// auth routes
-	mux.HandleFunc("/oauth-callback", oauthServer.HandleCallback)
-	mux.HandleFunc("/client-metadata.json", oauthServer.HandleClientMetadata)
-	mux.HandleFunc("/oauth/authorize", oauthServer.HandleAuthorize)
-	mux.HandleFunc("/oauth/token", oauthServer.HandleToken)
-
 	port := cmd.String(cPort)
 	s := &http.Server{
 		Handler: loggingMiddleware(mux),
@@ -108,16 +102,16 @@ func run(_ context.Context, cmd *cli.Command) error {
 
 func setupDB(cmd *cli.Command) *gorm.DB {
 	dbPath := cmd.String(cDb)
-	_, err := os.Stat(dbPath)
-	if errors.Is(err, os.ErrNotExist) {
-		fmt.Println("Privi repo file does not exist; creating...")
-		_, err := os.Create(dbPath)
-		if err != nil {
-			log.Err(err).Msgf("unable to create privi repo file at %s", dbPath)
-		}
-	} else if err != nil {
-		log.Err(err).Msgf("error finding privi repo file")
-	}
+	// _, err := os.Stat(dbPath)
+	// if errors.Is(err, os.ErrNotExist) {
+	// 	fmt.Println("Privi repo file does not exist; creating...")
+	// 	_, err := os.Create(dbPath)
+	// 	if err != nil {
+	// 		log.Err(err).Msgf("unable to create privi repo file at %s", dbPath)
+	// 	}
+	// } else if err != nil {
+	// 	log.Err(err).Msgf("error finding privi repo file")
+	// }
 
 	priviDB, err := gorm.Open(sqlite.Open(dbPath))
 	if err != nil {
@@ -145,11 +139,12 @@ func setupOAuthServer(
 	db *gorm.DB,
 ) *oauthserver.OAuthServer {
 	keyFile := cmd.String(cKeyFile)
-	// Read JWK from file
-	jwkBytes, err := os.ReadFile(keyFile)
+
+	jwkBytes := []byte{}
+	_, err := os.Stat(keyFile)
 	if err != nil {
 		if !errors.Is(err, os.ErrNotExist) {
-			log.Fatal().Err(err).Msgf("unable to read key file at %s", keyFile)
+			log.Fatal().Err(err).Msgf("error finding key file")
 		}
 		// Generate ECDSA key using P-256 curve with crypto/rand for secure randomness
 		key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
@@ -171,6 +166,9 @@ func setupOAuthServer(
 			log.Fatal().Err(err).Msgf("failed to write key to file")
 		}
 		log.Info().Msgf("created key file at %s", keyFile)
+	} else {
+		// Read JWK from file
+		jwkBytes, err = os.ReadFile(keyFile)
 	}
 
 	domain := cmd.String(cDomain)

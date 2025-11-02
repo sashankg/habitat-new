@@ -57,7 +57,8 @@ func getFlags() ([]cli.Flag, []cli.MutuallyExclusiveFlags) {
 		},
 		&cli.StringFlag{
 			Name:      cKeyFile,
-			Usage:     "The path to the key file to use for TLS",
+			Usage:     "The path to the key file to use for OAuth client metadata",
+			Value:     "./key.jwk",
 			TakesFile: true,
 			Sources:   getSources(cKeyFile),
 		},
