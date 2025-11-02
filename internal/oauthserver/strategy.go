@@ -5,20 +5,20 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/base64"
-	"encoding/gob"
 	"fmt"
 	"io"
 
+	"github.com/fxamacker/cbor/v2"
 	"github.com/ory/fosite"
 	"github.com/ory/fosite/handler/oauth2"
 	"golang.org/x/crypto/nacl/secretbox"
 )
 
 type authorizeCodeData struct {
-	ClientID    string
-	RedirectURI string
-	Scopes      []string
-	Session     *authSession
+	ClientID    string       `cbor:"1,keyasint"`
+	RedirectURI string       `cbor:"2,keyasint"`
+	Scopes      []string     `cbor:"3,keyasint"`
+	Session     *authSession `cbor:"4,keyasint"`
 }
 
 type strategy struct {
@@ -111,7 +111,7 @@ func (s *strategy) ValidateAuthorizeCode(
 func (s *strategy) encrypt(data any) (string, error) {
 	// fmt.Printf("data: %+v\n", data)
 	var b bytes.Buffer
-	gob.NewEncoder(&b).Encode(data)
+	cbor.NewEncoder(&b).Encode(data)
 
 	var nonce [24]byte
 	_, err := io.ReadFull(rand.Reader, nonce[:])
@@ -134,5 +134,8 @@ func (s *strategy) decrypt(token string, data any) error {
 	if !ok {
 		return fmt.Errorf("invalid token")
 	}
-	return gob.NewDecoder(bytes.NewReader(decrypted)).Decode(data)
+	if data != nil {
+		return cbor.NewDecoder(bytes.NewReader(decrypted)).Decode(data)
+	}
+	return nil
 }
