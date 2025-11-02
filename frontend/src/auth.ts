@@ -2,6 +2,7 @@ import clientMetadata from "..//client-metadata";
 import * as client from "openid-client";
 
 export class AuthManager {
+  handle: string | null;
   private accessToken: string | null;
   private config: client.Configuration;
 
@@ -15,6 +16,7 @@ export class AuthManager {
       },
       client_id,
     );
+    this.handle = localStorage.getItem("handle");
     this.accessToken = localStorage.getItem("token");
   }
 
@@ -23,13 +25,16 @@ export class AuthManager {
   }
 
   loginUrl(handle: string, redirectUri: string) {
+    this.handle = handle;
+    localStorage.setItem("handle", handle);
     const state = client.randomState();
+    console.log(state);
     localStorage.setItem("state", state);
     return client.buildAuthorizationUrl(this.config, {
       redirect_uri: redirectUri,
       response_type: "code",
       handle,
-      state: state,
+      state,
     });
   }
   async exchangeCode(currentUrl: string) {
@@ -37,6 +42,9 @@ export class AuthManager {
     if (!state) {
       throw new Error("No state found");
     }
+    localStorage.removeItem("state");
+    console.log(currentUrl);
+    console.log(state);
     const token = await client.authorizationCodeGrant(
       this.config,
       new URL(currentUrl),
@@ -56,7 +64,7 @@ export class AuthManager {
     options?: client.DPoPOptions,
   ) {
     if (!this.accessToken) {
-      throw new Error("No access token found");
+      throw new UnauthenticatedError();
     }
     const response = await client.fetchProtectedResource(
       this.config,

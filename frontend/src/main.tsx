@@ -7,16 +7,17 @@ import reportWebVitals from "./reportWebVitals.ts";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AuthManager } from "./auth.ts";
 
-export const oauthClient = new AuthManager("privi.dwelf-mirzam.ts.net");
-
+const authManager = new AuthManager("privi.dwelf-mirzam.ts.net");
 const queryClient = new QueryClient();
+
+console.log("is this thing on");
 
 // Create a new router instance
 const router = createRouter({
   routeTree,
   context: {
     queryClient,
-    oauthClient,
+    authManager,
   },
   defaultPreload: "intent",
   scrollRestoration: true,
