@@ -18,8 +18,11 @@ const config = new client.Configuration(
 
 export const Route = createFileRoute("/oauth-login")({
   validateSearch(search) {
+    if (!search.code) {
+      return {};
+    }
     return {
-      code: search.code as string | undefined,
+      code: search.code as string,
     };
   },
   async beforeLoad({ search }) {
