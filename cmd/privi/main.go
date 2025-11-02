@@ -44,7 +44,7 @@ func run(_ context.Context, cmd *cli.Command) error {
 		log.Info().Msgf("%s: %v", flag, cmd.Value(flag))
 	}
 	db := setupDB(cmd)
-	oauthServer := setupOAuthServer(cmd, db)
+	oauthServer := setupOAuthServer(cmd)
 	priviServer := setupPriviServer(db)
 
 	mux := http.NewServeMux()
@@ -135,10 +135,7 @@ func setupPriviServer(db *gorm.DB) *privi.Server {
 	return privi.NewServer(adapter, repo)
 }
 
-func setupOAuthServer(
-	cmd *cli.Command,
-	db *gorm.DB,
-) *oauthserver.OAuthServer {
+func setupOAuthServer(cmd *cli.Command) *oauthserver.OAuthServer {
 	keyFile := cmd.String(cKeyFile)
 
 	jwkBytes := []byte{}
