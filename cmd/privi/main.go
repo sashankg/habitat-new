@@ -13,6 +13,7 @@ import (
 	"os"
 
 	jose "github.com/go-jose/go-jose/v3"
+	"gorm.io/driver/postgres"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
@@ -101,18 +102,15 @@ func run(_ context.Context, cmd *cli.Command) error {
 }
 
 func setupDB(cmd *cli.Command) *gorm.DB {
+	postgresUrl := cmd.String(cPgUrl)
+	if postgresUrl != "" {
+		db, err := gorm.Open(postgres.Open(postgresUrl), &gorm.Config{})
+		if err != nil {
+			log.Fatal().Err(err).Msg("unable to open postgres db backing privi server")
+		}
+		return db
+	}
 	dbPath := cmd.String(cDb)
-	// _, err := os.Stat(dbPath)
-	// if errors.Is(err, os.ErrNotExist) {
-	// 	fmt.Println("Privi repo file does not exist; creating...")
-	// 	_, err := os.Create(dbPath)
-	// 	if err != nil {
-	// 		log.Err(err).Msgf("unable to create privi repo file at %s", dbPath)
-	// 	}
-	// } else if err != nil {
-	// 	log.Err(err).Msgf("error finding privi repo file")
-	// }
-
 	priviDB, err := gorm.Open(sqlite.Open(dbPath))
 	if err != nil {
 		log.Fatal().Err(err).Msg("unable to open sqlite file backing privi server")
