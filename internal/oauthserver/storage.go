@@ -29,9 +29,12 @@ type store struct {
 	memoryStore *storage.MemoryStore
 }
 
-func newStore(db *gorm.DB) *store {
-	db.AutoMigrate(&AccessTokenSession{})
-	return &store{memoryStore: storage.NewMemoryStore(), db: db}
+func newStore(db *gorm.DB) (*store, error) {
+	err := db.AutoMigrate(&AccessTokenSession{})
+	if err != nil {
+		return nil, err
+	}
+	return &store{memoryStore: storage.NewMemoryStore(), db: db}, nil
 }
 
 var (

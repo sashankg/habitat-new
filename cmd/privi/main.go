@@ -223,13 +223,20 @@ func setupOAuthServer(
 		"https://"+domain+"/oauth-callback",       /*redirectUri*/
 		jwkBytes,                                  /*secretJwk*/
 	)
+	if err != nil {
+		log.Fatal().Err(err).Msgf("unable to setup oauth client")
+	}
 
-	return oauthserver.NewOAuthServer(
+	oauthServer, err := oauthserver.NewOAuthServer(
 		db,
 		oauthClient,
 		sessions.NewCookieStore([]byte("my super secret signing password")),
 		identity.DefaultDirectory(),
 	)
+	if err != nil {
+		log.Fatal().Err(err).Msgf("unable to setup oauth server")
+	}
+	return oauthServer
 }
 
 func loggingMiddleware(next http.Handler) http.Handler {

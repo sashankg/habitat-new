@@ -106,8 +106,11 @@ func NewOAuthServer(
 	oauthClient auth.OAuthClient,
 	sessionStore sessions.Store,
 	directory identity.Directory,
-) *OAuthServer {
-	storage := newStore(db)
+) (*OAuthServer, error) {
+	storage, err := newStore(db)
+	if err != nil {
+		return nil, err
+	}
 	config := &fosite.Config{
 		GlobalSecret:               []byte("my super secret signing password"),
 		SendDebugMessagesToClients: true,
@@ -128,7 +131,7 @@ func NewOAuthServer(
 		oauthClient:  oauthClient,
 		sessionStore: sessionStore,
 		directory:    directory,
-	}
+	}, nil
 }
 
 // HandleAuthorize processes OAuth 2.0 authorization requests from the client.

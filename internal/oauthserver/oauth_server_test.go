@@ -28,12 +28,13 @@ func TestOAuthServerE2E(t *testing.T) {
 	db, err := gorm.Open(sqlite.Open(":memory:"))
 	require.NoError(t, err)
 
-	oauthServer := oauthserver.NewOAuthServer(
+	oauthServer, err := oauthserver.NewOAuthServer(
 		db,
 		oauthClient,
 		sessions.NewCookieStore(securecookie.GenerateRandomKey(32)),
 		auth.NewDummyDirectory("http://pds.url"),
 	)
+	require.NoError(t, err)
 	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/authorize":
@@ -114,9 +115,9 @@ func TestOAuthServerE2E(t *testing.T) {
 
 	result, err := server.Client().Do(authRequest)
 	require.NoError(t, err, "failed to make authorize request")
-	defer func() { require.NoError(t, result.Body.Close()) }()
 	respBytes, err := io.ReadAll(result.Body)
 	require.NoError(t, err, "failed to read response body")
+	require.NoError(t, result.Body.Close())
 	require.Equal(t, http.StatusOK, result.StatusCode, "authorize request failed: %s", respBytes)
 
 	token := &oauth2.Token{}
@@ -131,5 +132,6 @@ func TestOAuthServerE2E(t *testing.T) {
 	require.NoError(t, err, "failed to make resource request")
 	respBytes, err = io.ReadAll(resp.Body)
 	require.NoError(t, err, "failed to read response body")
+	require.NoError(t, resp.Body.Close())
 	require.Equal(t, http.StatusOK, resp.StatusCode, "resource request failed: %s", respBytes)
 }

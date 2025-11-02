@@ -15,7 +15,8 @@ import (
 func TestGetClient(t *testing.T) {
 	db, err := gorm.Open(sqlite.Open(":memory:"))
 	require.NoError(t, err)
-	store := newStore(db)
+	store, err := newStore(db)
+	require.NoError(t, err)
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		t.Logf("url: %s", r.Host)
