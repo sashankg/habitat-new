@@ -8,7 +8,7 @@ export interface MigrateRequest {
   target_version: string;
 }
 export interface GetNodeResponse {
-  state: node.State;
+  state?: node.State;
 }
 export interface PostAddUserRequest {
   user_id: string;
@@ -18,7 +18,7 @@ export interface PostAddUserRequest {
   certificate: string;
 }
 export interface PostAddUserResponse {
-  pds_create_account_response: { [key: string]: any};
+  pds_create_account_response: { [key: string]: any };
 }
 
 //////////
@@ -29,9 +29,9 @@ export interface PDSCreateAccountRequest {
   handle: string;
   password: string;
 }
-export type PDSCreateAccountResponse = { [key: string]: any};
+export type PDSCreateAccountResponse = { [key: string]: any };
 export interface PDSCreateSessionRequest {
   identifier: string; // email or handle
   password: string;
 }
-export type PDSCreateSessionResponse = { [key: string]: any};
+export type PDSCreateSessionResponse = { [key: string]: any };

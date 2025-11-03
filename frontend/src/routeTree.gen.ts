@@ -19,14 +19,17 @@ import { Route as AddUserImport } from './routes/add-user'
 import { Route as RequireAuthImport } from './routes/_requireAuth'
 import { Route as IndexImport } from './routes/index'
 import { Route as RequireAuthPermissionsImport } from './routes/_requireAuth/permissions'
+import { Route as RequireAuthDocsImport } from './routes/_requireAuth/docs'
 import { Route as RequireAuthPriviTestIndexImport } from './routes/_requireAuth/privi-test/index'
 import { Route as RequireAuthPermissionsIndexImport } from './routes/_requireAuth/permissions/index'
+import { Route as RequireAuthDocsIndexImport } from './routes/_requireAuth/docs/index'
 import { Route as RequireAuthPriviTestViewImport } from './routes/_requireAuth/privi-test/view'
 import { Route as RequireAuthPermissionsPeopleImport } from './routes/_requireAuth/permissions/people'
 import { Route as RequireAuthPermissionsLexiconsImport } from './routes/_requireAuth/permissions/lexicons'
 import { Route as RequireAuthPermissionsLexiconsIndexImport } from './routes/_requireAuth/permissions/lexicons/index'
 import { Route as RequireAuthPermissionsGroupsIndexImport } from './routes/_requireAuth/permissions/groups/index'
 import { Route as RequireAuthPermissionsLexiconsLexiconIdImport } from './routes/_requireAuth/permissions/lexicons/$lexiconId'
+import { Route as RequireAuthDocsDidRkeyImport } from './routes/_requireAuth/docs/$did.$rkey'
 
 // Create/Update Routes
 
@@ -77,6 +80,12 @@ const RequireAuthPermissionsRoute = RequireAuthPermissionsImport.update({
   getParentRoute: () => RequireAuthRoute,
 } as any)
 
+const RequireAuthDocsRoute = RequireAuthDocsImport.update({
+  id: '/docs',
+  path: '/docs',
+  getParentRoute: () => RequireAuthRoute,
+} as any)
+
 const RequireAuthPriviTestIndexRoute = RequireAuthPriviTestIndexImport.update({
   id: '/privi-test/',
   path: '/privi-test/',
@@ -89,6 +98,12 @@ const RequireAuthPermissionsIndexRoute =
     path: '/',
     getParentRoute: () => RequireAuthPermissionsRoute,
   } as any)
+
+const RequireAuthDocsIndexRoute = RequireAuthDocsIndexImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => RequireAuthDocsRoute,
+} as any)
 
 const RequireAuthPriviTestViewRoute = RequireAuthPriviTestViewImport.update({
   id: '/privi-test/view',
@@ -130,6 +145,12 @@ const RequireAuthPermissionsLexiconsLexiconIdRoute =
     path: '/$lexiconId',
     getParentRoute: () => RequireAuthPermissionsLexiconsRoute,
   } as any)
+
+const RequireAuthDocsDidRkeyRoute = RequireAuthDocsDidRkeyImport.update({
+  id: '/$did/$rkey',
+  path: '/$did/$rkey',
+  getParentRoute: () => RequireAuthDocsRoute,
+} as any)
 
 // Populate the FileRoutesByPath interface
 
@@ -184,6 +205,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ServerImport
       parentRoute: typeof rootRoute
     }
+    '/_requireAuth/docs': {
+      id: '/_requireAuth/docs'
+      path: '/docs'
+      fullPath: '/docs'
+      preLoaderRoute: typeof RequireAuthDocsImport
+      parentRoute: typeof RequireAuthImport
+    }
     '/_requireAuth/permissions': {
       id: '/_requireAuth/permissions'
       path: '/permissions'
@@ -212,6 +240,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RequireAuthPriviTestViewImport
       parentRoute: typeof RequireAuthImport
     }
+    '/_requireAuth/docs/': {
+      id: '/_requireAuth/docs/'
+      path: '/'
+      fullPath: '/docs/'
+      preLoaderRoute: typeof RequireAuthDocsIndexImport
+      parentRoute: typeof RequireAuthDocsImport
+    }
     '/_requireAuth/permissions/': {
       id: '/_requireAuth/permissions/'
       path: '/'
@@ -225,6 +260,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/privi-test'
       preLoaderRoute: typeof RequireAuthPriviTestIndexImport
       parentRoute: typeof RequireAuthImport
+    }
+    '/_requireAuth/docs/$did/$rkey': {
+      id: '/_requireAuth/docs/$did/$rkey'
+      path: '/$did/$rkey'
+      fullPath: '/docs/$did/$rkey'
+      preLoaderRoute: typeof RequireAuthDocsDidRkeyImport
+      parentRoute: typeof RequireAuthDocsImport
     }
     '/_requireAuth/permissions/lexicons/$lexiconId': {
       id: '/_requireAuth/permissions/lexicons/$lexiconId'
@@ -251,6 +293,20 @@ declare module '@tanstack/react-router' {
 }
 
 // Create and export the route tree
+
+interface RequireAuthDocsRouteChildren {
+  RequireAuthDocsIndexRoute: typeof RequireAuthDocsIndexRoute
+  RequireAuthDocsDidRkeyRoute: typeof RequireAuthDocsDidRkeyRoute
+}
+
+const RequireAuthDocsRouteChildren: RequireAuthDocsRouteChildren = {
+  RequireAuthDocsIndexRoute: RequireAuthDocsIndexRoute,
+  RequireAuthDocsDidRkeyRoute: RequireAuthDocsDidRkeyRoute,
+}
+
+const RequireAuthDocsRouteWithChildren = RequireAuthDocsRoute._addFileChildren(
+  RequireAuthDocsRouteChildren,
+)
 
 interface RequireAuthPermissionsLexiconsRouteChildren {
   RequireAuthPermissionsLexiconsLexiconIdRoute: typeof RequireAuthPermissionsLexiconsLexiconIdRoute
@@ -293,12 +349,14 @@ const RequireAuthPermissionsRouteWithChildren =
   )
 
 interface RequireAuthRouteChildren {
+  RequireAuthDocsRoute: typeof RequireAuthDocsRouteWithChildren
   RequireAuthPermissionsRoute: typeof RequireAuthPermissionsRouteWithChildren
   RequireAuthPriviTestViewRoute: typeof RequireAuthPriviTestViewRoute
   RequireAuthPriviTestIndexRoute: typeof RequireAuthPriviTestIndexRoute
 }
 
 const RequireAuthRouteChildren: RequireAuthRouteChildren = {
+  RequireAuthDocsRoute: RequireAuthDocsRouteWithChildren,
   RequireAuthPermissionsRoute: RequireAuthPermissionsRouteWithChildren,
   RequireAuthPriviTestViewRoute: RequireAuthPriviTestViewRoute,
   RequireAuthPriviTestIndexRoute: RequireAuthPriviTestIndexRoute,
@@ -316,12 +374,15 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/oauth-login': typeof OauthLoginRoute
   '/server': typeof ServerRoute
+  '/docs': typeof RequireAuthDocsRouteWithChildren
   '/permissions': typeof RequireAuthPermissionsRouteWithChildren
   '/permissions/lexicons': typeof RequireAuthPermissionsLexiconsRouteWithChildren
   '/permissions/people': typeof RequireAuthPermissionsPeopleRoute
   '/privi-test/view': typeof RequireAuthPriviTestViewRoute
+  '/docs/': typeof RequireAuthDocsIndexRoute
   '/permissions/': typeof RequireAuthPermissionsIndexRoute
   '/privi-test': typeof RequireAuthPriviTestIndexRoute
+  '/docs/$did/$rkey': typeof RequireAuthDocsDidRkeyRoute
   '/permissions/lexicons/$lexiconId': typeof RequireAuthPermissionsLexiconsLexiconIdRoute
   '/permissions/groups': typeof RequireAuthPermissionsGroupsIndexRoute
   '/permissions/lexicons/': typeof RequireAuthPermissionsLexiconsIndexRoute
@@ -337,8 +398,10 @@ export interface FileRoutesByTo {
   '/server': typeof ServerRoute
   '/permissions/people': typeof RequireAuthPermissionsPeopleRoute
   '/privi-test/view': typeof RequireAuthPriviTestViewRoute
+  '/docs': typeof RequireAuthDocsIndexRoute
   '/permissions': typeof RequireAuthPermissionsIndexRoute
   '/privi-test': typeof RequireAuthPriviTestIndexRoute
+  '/docs/$did/$rkey': typeof RequireAuthDocsDidRkeyRoute
   '/permissions/lexicons/$lexiconId': typeof RequireAuthPermissionsLexiconsLexiconIdRoute
   '/permissions/groups': typeof RequireAuthPermissionsGroupsIndexRoute
   '/permissions/lexicons': typeof RequireAuthPermissionsLexiconsIndexRoute
@@ -353,12 +416,15 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/oauth-login': typeof OauthLoginRoute
   '/server': typeof ServerRoute
+  '/_requireAuth/docs': typeof RequireAuthDocsRouteWithChildren
   '/_requireAuth/permissions': typeof RequireAuthPermissionsRouteWithChildren
   '/_requireAuth/permissions/lexicons': typeof RequireAuthPermissionsLexiconsRouteWithChildren
   '/_requireAuth/permissions/people': typeof RequireAuthPermissionsPeopleRoute
   '/_requireAuth/privi-test/view': typeof RequireAuthPriviTestViewRoute
+  '/_requireAuth/docs/': typeof RequireAuthDocsIndexRoute
   '/_requireAuth/permissions/': typeof RequireAuthPermissionsIndexRoute
   '/_requireAuth/privi-test/': typeof RequireAuthPriviTestIndexRoute
+  '/_requireAuth/docs/$did/$rkey': typeof RequireAuthDocsDidRkeyRoute
   '/_requireAuth/permissions/lexicons/$lexiconId': typeof RequireAuthPermissionsLexiconsLexiconIdRoute
   '/_requireAuth/permissions/groups/': typeof RequireAuthPermissionsGroupsIndexRoute
   '/_requireAuth/permissions/lexicons/': typeof RequireAuthPermissionsLexiconsIndexRoute
@@ -374,12 +440,15 @@ export interface FileRouteTypes {
     | '/login'
     | '/oauth-login'
     | '/server'
+    | '/docs'
     | '/permissions'
     | '/permissions/lexicons'
     | '/permissions/people'
     | '/privi-test/view'
+    | '/docs/'
     | '/permissions/'
     | '/privi-test'
+    | '/docs/$did/$rkey'
     | '/permissions/lexicons/$lexiconId'
     | '/permissions/groups'
     | '/permissions/lexicons/'
@@ -394,8 +463,10 @@ export interface FileRouteTypes {
     | '/server'
     | '/permissions/people'
     | '/privi-test/view'
+    | '/docs'
     | '/permissions'
     | '/privi-test'
+    | '/docs/$did/$rkey'
     | '/permissions/lexicons/$lexiconId'
     | '/permissions/groups'
     | '/permissions/lexicons'
@@ -408,12 +479,15 @@ export interface FileRouteTypes {
     | '/login'
     | '/oauth-login'
     | '/server'
+    | '/_requireAuth/docs'
     | '/_requireAuth/permissions'
     | '/_requireAuth/permissions/lexicons'
     | '/_requireAuth/permissions/people'
     | '/_requireAuth/privi-test/view'
+    | '/_requireAuth/docs/'
     | '/_requireAuth/permissions/'
     | '/_requireAuth/privi-test/'
+    | '/_requireAuth/docs/$did/$rkey'
     | '/_requireAuth/permissions/lexicons/$lexiconId'
     | '/_requireAuth/permissions/groups/'
     | '/_requireAuth/permissions/lexicons/'
@@ -465,6 +539,7 @@ export const routeTree = rootRoute
     "/_requireAuth": {
       "filePath": "_requireAuth.tsx",
       "children": [
+        "/_requireAuth/docs",
         "/_requireAuth/permissions",
         "/_requireAuth/privi-test/view",
         "/_requireAuth/privi-test/"
@@ -484,6 +559,14 @@ export const routeTree = rootRoute
     },
     "/server": {
       "filePath": "server.tsx"
+    },
+    "/_requireAuth/docs": {
+      "filePath": "_requireAuth/docs.tsx",
+      "parent": "/_requireAuth",
+      "children": [
+        "/_requireAuth/docs/",
+        "/_requireAuth/docs/$did/$rkey"
+      ]
     },
     "/_requireAuth/permissions": {
       "filePath": "_requireAuth/permissions.tsx",
@@ -511,6 +594,10 @@ export const routeTree = rootRoute
       "filePath": "_requireAuth/privi-test/view.tsx",
       "parent": "/_requireAuth"
     },
+    "/_requireAuth/docs/": {
+      "filePath": "_requireAuth/docs/index.tsx",
+      "parent": "/_requireAuth/docs"
+    },
     "/_requireAuth/permissions/": {
       "filePath": "_requireAuth/permissions/index.tsx",
       "parent": "/_requireAuth/permissions"
@@ -518,6 +605,10 @@ export const routeTree = rootRoute
     "/_requireAuth/privi-test/": {
       "filePath": "_requireAuth/privi-test/index.tsx",
       "parent": "/_requireAuth"
+    },
+    "/_requireAuth/docs/$did/$rkey": {
+      "filePath": "_requireAuth/docs/$did.$rkey.tsx",
+      "parent": "/_requireAuth/docs"
     },
     "/_requireAuth/permissions/lexicons/$lexiconId": {
       "filePath": "_requireAuth/permissions/lexicons/$lexiconId.tsx",
