@@ -7,6 +7,7 @@ const stateLocalStorageKey = "state";
 
 export class AuthManager {
   handle: string | null;
+  private serverDomain: string;
   private accessToken: string | null;
   private config: client.Configuration;
   private onUnauthenticated: () => void;
@@ -24,6 +25,7 @@ export class AuthManager {
     this.handle = localStorage.getItem(handleLocalStorageKey);
     this.accessToken = localStorage.getItem(tokenLocalStorageKey);
     this.onUnauthenticated = onUnauthenticated;
+    this.serverDomain = serverDomain;
   }
 
   isAuthenticated() {
@@ -80,7 +82,7 @@ export class AuthManager {
     const response = await client.fetchProtectedResource(
       this.config,
       this.accessToken,
-      new URL(url),
+      new URL(url, `https://${this.serverDomain}`),
       method,
       body,
       headers,
