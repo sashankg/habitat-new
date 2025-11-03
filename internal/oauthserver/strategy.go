@@ -96,7 +96,6 @@ func (s *strategy) ValidateAuthorizeCode(
 }
 
 func (s *strategy) encrypt(data any) (string, error) {
-	// fmt.Printf("data: %+v\n", data)
 	var b bytes.Buffer
 	cbor.NewEncoder(&b).Encode(data)
 
