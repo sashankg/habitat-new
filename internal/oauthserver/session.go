@@ -8,28 +8,40 @@ import (
 )
 
 type authSession struct {
-	Subject     string              `cbor:"1,keyasint"`
-	ExpiresAt   time.Time           `cbor:"2,keyasint"`
-	DpopKey     []byte              `cbor:"3,keyasint"`
-	TokenInfo   *auth.TokenResponse `cbor:"4,keyasint"`
-	ClientID    string              `cbor:"5,keyasint"`
-	RedirectURI string              `cbor:"6,keyasint"`
-	Scopes      []string            `cbor:"7,keyasint"`
-	State       string              `cbor:"8,keyasint"`
-	RequestedAt time.Time           `cbor:"9,keyasint"`
+	Subject       string              `cbor:"1,keyasint"`
+	ExpiresAt     time.Time           `cbor:"2,keyasint"`
+	DpopKey       []byte              `cbor:"3,keyasint"`
+	TokenInfo     *auth.TokenResponse `cbor:"4,keyasint"`
+	ClientID      string              `cbor:"5,keyasint"`
+	Scopes        []string            `cbor:"7,keyasint"`
+	State         string              `cbor:"8,keyasint"`
+	PKCEChallenge string              `cbor:"9,keyasint"`
 }
 
 var _ fosite.Session = (*authSession)(nil)
 
-func newAuthSession(
-	subject string,
+func newAuthorizeSession(
+	req fosite.AuthorizeRequester,
 	dpopKey []byte,
 	tokenInfo *auth.TokenResponse,
 ) *authSession {
 	return &authSession{
-		Subject:   subject,
-		DpopKey:   dpopKey,
-		TokenInfo: tokenInfo,
+		Subject:       req.GetRequestForm().Get("handle"),
+		Scopes:        req.GetRequestedScopes(),
+		DpopKey:       dpopKey,
+		TokenInfo:     tokenInfo,
+		State:         req.GetState(),
+		ClientID:      req.GetClient().GetID(),
+		PKCEChallenge: req.GetRequestForm().Get("code_challenge"),
+	}
+}
+
+func newAccessTokenSession(session *authSession) *authSession {
+	return &authSession{
+		Subject:   session.Subject,
+		DpopKey:   session.DpopKey,
+		TokenInfo: session.TokenInfo,
+		Scopes:    session.Scopes,
 	}
 }
 

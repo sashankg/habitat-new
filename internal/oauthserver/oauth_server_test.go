@@ -29,6 +29,8 @@ func TestOAuthServerE2E(t *testing.T) {
 		auth.NewDummyDirectory("http://pds.url"),
 	)
 	require.NoError(t, err)
+
+	// setup http server oauth client to make requests to
 	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/authorize":
@@ -50,11 +52,13 @@ func TestOAuthServerE2E(t *testing.T) {
 		}
 	}))
 	defer server.Close()
-
+	jar, err := cookiejar.New(nil)
+	require.NoError(t, err, "failed to create cookie jar")
+	server.Client().Jar = jar
 	// set the server's oauthClient redirectUri now that we know the url
 	serverMetadata.RedirectUris = []string{server.URL + "/callback"}
 
-	// setup client app
+	// setup client app that oauth server can make requests to
 	verifier := oauth2.GenerateVerifier()
 	config := &oauth2.Config{
 		Endpoint: oauth2.Endpoint{
@@ -99,16 +103,14 @@ func TestOAuthServerE2E(t *testing.T) {
 	config.ClientID = clientApp.URL + "/client-metadata.json"
 	config.RedirectURL = clientApp.URL + "/callback"
 
+	// create authorize request
 	authRequest, err := http.NewRequest(http.MethodGet, config.AuthCodeURL(
 		"test-state",
 		oauth2.S256ChallengeOption(verifier),
 	)+"&handle=did:web:test", nil)
 	require.NoError(t, err, "failed to create authorize request")
 
-	jar, err := cookiejar.New(nil)
-	require.NoError(t, err, "failed to create cookie jar")
-	server.Client().Jar = jar
-
+	// make authorize requests which will follow redirects all thw way to token response
 	result, err := server.Client().Do(authRequest)
 	require.NoError(t, err, "failed to make authorize request")
 	respBytes, err := io.ReadAll(result.Body)
@@ -118,11 +120,9 @@ func TestOAuthServerE2E(t *testing.T) {
 
 	token := &oauth2.Token{}
 	require.NoError(t, json.Unmarshal(respBytes, token), "failed to decode token")
-
-	t.Logf("token: %v, tokenlen: %d", token, len(token.AccessToken))
-
 	require.NotEmpty(t, token.AccessToken, "access token should not be empty")
 
+	// use server as the oauth client http client because of it has the tls cert
 	oauthClientCtx := context.WithValue(context.Background(), oauth2.HTTPClient, server.Client())
 	client := config.Client(oauthClientCtx, token)
 

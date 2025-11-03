@@ -14,13 +14,6 @@ import (
 	"golang.org/x/crypto/nacl/secretbox"
 )
 
-type authorizeCodeData struct {
-	ClientID    string       `cbor:"1,keyasint"`
-	RedirectURI string       `cbor:"2,keyasint"`
-	Scopes      []string     `cbor:"3,keyasint"`
-	Session     *authSession `cbor:"4,keyasint"`
-}
-
 type strategy struct {
 	key *[32]byte
 }
@@ -43,7 +36,7 @@ func (s *strategy) GenerateAccessToken(
 	ctx context.Context,
 	requester fosite.Requester,
 ) (token string, signature string, err error) {
-	token, err = s.encrypt(requester.GetSession().(*authSession))
+	token, err = s.encrypt(newAccessTokenSession(requester.GetSession().(*authSession)))
 	return token, token, err
 }
 
@@ -89,13 +82,7 @@ func (s *strategy) GenerateAuthorizeCode(
 	ctx context.Context,
 	requester fosite.Requester,
 ) (token string, signature string, err error) {
-	data := &authorizeCodeData{
-		ClientID:    requester.GetClient().GetID(),
-		RedirectURI: requester.GetRequestForm().Get("redirect_uri"),
-		Scopes:      requester.GetRequestedScopes(),
-		Session:     requester.GetSession().(*authSession),
-	}
-	token, err = s.encrypt(data)
+	token, err = s.encrypt(requester.GetSession().(*authSession))
 	return token, token, err
 }
 

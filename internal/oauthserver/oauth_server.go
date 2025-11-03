@@ -237,7 +237,7 @@ func (o *OAuthServer) HandleCallback(
 	resp, err := o.provider.NewAuthorizeResponse(
 		ctx,
 		authRequest,
-		newAuthSession(arf.Form.Get("handle"), arf.DpopKey, tokenInfo),
+		newAuthorizeSession(authRequest, arf.DpopKey, tokenInfo),
 	)
 	if err != nil {
 		utils.LogAndHTTPError(w, err, "failed to create response", http.StatusInternalServerError)
