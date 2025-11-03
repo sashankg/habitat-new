@@ -3,11 +3,7 @@ package utils
 import (
 	"net/http"
 
-	"github.com/eagraf/habitat-new/internal/node/logging"
-)
-
-var (
-	log = logging.NewLogger()
+	"github.com/rs/zerolog/log"
 )
 
 // LogAndHTTPError logs the error before sending and HTTP error response to the provided writer.

@@ -1,12 +1,13 @@
-import clientMetadata from "..//client-metadata";
+import clientMetadata from "../client-metadata";
 import * as client from "openid-client";
 
 export class AuthManager {
   handle: string | null;
   private accessToken: string | null;
   private config: client.Configuration;
+  private onUnauthenticated: () => void;
 
-  constructor(serverDomain: string) {
+  constructor(serverDomain: string, onUnauthenticated: () => void) {
     const { client_id } = clientMetadata(__DOMAIN__);
     this.config = new client.Configuration(
       {
@@ -18,6 +19,7 @@ export class AuthManager {
     );
     this.handle = localStorage.getItem("handle");
     this.accessToken = localStorage.getItem("token");
+    this.onUnauthenticated = onUnauthenticated;
   }
 
   isAuthenticated() {
@@ -64,6 +66,7 @@ export class AuthManager {
     options?: client.DPoPOptions,
   ) {
     if (!this.accessToken) {
+      this.onUnauthenticated();
       throw new UnauthenticatedError();
     }
     if (!headers) {
@@ -81,6 +84,7 @@ export class AuthManager {
     );
 
     if (response.status === 401) {
+      this.onUnauthenticated();
       throw new UnauthenticatedError();
     }
     return response;

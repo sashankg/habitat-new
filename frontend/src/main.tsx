@@ -7,10 +7,10 @@ import reportWebVitals from "./reportWebVitals.ts";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AuthManager } from "./auth.ts";
 
-const authManager = new AuthManager("privi.dwelf-mirzam.ts.net");
+const authManager = new AuthManager("privi.dwelf-mirzam.ts.net", () => {
+  router.navigate({ to: "/oauth-login" });
+});
 const queryClient = new QueryClient();
-
-console.log("is this thing on");
 
 // Create a new router instance
 const router = createRouter({

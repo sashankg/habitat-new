@@ -171,12 +171,12 @@ func (s *store) CreateRefreshTokenSession(
 	accessSignature string,
 	request fosite.Requester,
 ) error {
-	panic("not implemented")
+	return nil
 }
 
 // DeleteRefreshTokenSession implements oauth2.CoreStorage.
 func (s *store) DeleteRefreshTokenSession(ctx context.Context, signature string) error {
-	panic("not implemented")
+	return nil
 }
 
 // GetRefreshTokenSession implements oauth2.CoreStorage.
@@ -185,7 +185,7 @@ func (s *store) GetRefreshTokenSession(
 	signature string,
 	session fosite.Session,
 ) (fosite.Requester, error) {
-	panic("not implemented")
+	return nil, nil
 }
 
 // RotateRefreshToken implements oauth2.CoreStorage.
@@ -194,7 +194,7 @@ func (s *store) RotateRefreshToken(
 	requestID string,
 	refreshTokenSignature string,
 ) (err error) {
-	panic("not implemented")
+	return nil
 }
 
 // RevokeRefreshToken implements oauth2.TokenRevocationStorage.

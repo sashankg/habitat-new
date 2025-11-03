@@ -133,3 +133,17 @@ func TestOAuthServerE2E(t *testing.T) {
 	require.NoError(t, resp.Body.Close())
 	require.Equal(t, http.StatusOK, resp.StatusCode, "resource request failed: %s", respBytes)
 }
+
+func TestValidate(t *testing.T) {
+	oauthServer, err := oauthserver.NewOAuthServer(
+		nil, /*oauthClient*/
+		nil, /*sessionStore*/
+		nil, /*directory*/
+	)
+	require.NoError(t, err, "failed to create oauth server")
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest("GET", "/resource", nil)
+	r.Header.Set("Authorization", "Bearer made-up-token")
+	_, _, ok := oauthServer.Validate(w, r)
+	require.False(t, ok)
+}

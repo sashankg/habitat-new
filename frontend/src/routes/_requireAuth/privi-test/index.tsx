@@ -20,9 +20,6 @@ export const Route = createFileRoute("/_requireAuth/privi-test/")({
         );
         console.log(response);
       },
-      onError(e) {
-        console.error(e);
-      },
     });
     return (
       <article>

@@ -56,6 +56,7 @@ func (s *Server) PutRecord(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	fmt.Println("callerDid: ", callerDID)
 	var req habitat.NetworkHabitatRepoPutRecordInput
 	err := json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
@@ -76,7 +77,12 @@ func (s *Server) PutRecord(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if ownerId.DID.String() != callerDID.String() {
-		utils.LogAndHTTPError(w, err, "only owner can put record", http.StatusUnauthorized)
+		utils.LogAndHTTPError(
+			w,
+			fmt.Errorf("only owner can put record"),
+			"only owner can put record",
+			http.StatusUnauthorized,
+		)
 		return
 	}
 
