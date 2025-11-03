@@ -88,93 +88,6 @@ func (s *store) GetAuthorizeCodeSession(
 	}
 	return &fosite.Request{
 		Client:         client,
-		Session:        data.Session,
-		RequestedScope: data.Scopes,
-	}, nil
-}
-
-// InvalidateAuthorizeCodeSession implements oauth2.CoreStorage.
-func (s *store) InvalidateAuthorizeCodeSession(ctx context.Context, code string) (err error) {
-	// Stateless - code is self-contained and single-use
-	return nil
-}
-
-// CreateAccessTokenSession implements oauth2.CoreStorage.
-func (s *store) CreateAccessTokenSession(
-	ctx context.Context,
-	signature string,
-	request fosite.Requester,
-) (err error) {
-	return nil
-}
-
-// GetAccessTokenSession implements oauth2.CoreStorage.
-func (s *store) GetAccessTokenSession(
-	ctx context.Context,
-	signature string,
-	session fosite.Session,
-) (request fosite.Requester, err error) {
-	var sess authSession
-	err = s.strategy.decrypt(signature, &sess)
-	if err != nil {
-		return nil, errors.Join(fosite.ErrNotFound, err)
-	}
-	return &fosite.AccessRequest{
-		Request: fosite.Request{
-			Session: &sess,
-		},
-	}, nil
-}
-
-// DeleteAccessTokenSession implements oauth2.CoreStorage.
-func (s *store) DeleteAccessTokenSession(ctx context.Context, signature string) (err error) {
-	return nil
-}
-
-// CreateRefreshTokenSession implements oauth2.CoreStorage.
-func (s *store) CreateRefreshTokenSession(
-	ctx context.Context,
-	signature string,
-	accessSignature string,
-	request fosite.Requester,
-) (err error) {
-	return s.memoryStore.CreateRefreshTokenSession(ctx, signature, accessSignature, request)
-}
-
-// DeleteRefreshTokenSession implements oauth2.CoreStorage.
-func (s *store) DeleteRefreshTokenSession(ctx context.Context, signature string) (err error) {
-	return s.memoryStore.DeleteRefreshTokenSession(ctx, signature)
-}
-
-// GetRefreshTokenSession implements oauth2.CoreStorage.
-func (s *store) GetRefreshTokenSession(
-	ctx context.Context,
-	signature string,
-	session fosite.Session,
-) (request fosite.Requester, err error) {
-	return s.memoryStore.GetRefreshTokenSession(ctx, signature, session)
-}
-
-// RotateRefreshToken implements oauth2.CoreStorage.
-func (s *store) RotateRefreshToken(
-	ctx context.Context,
-	requestID string,
-	refreshTokenSignature string,
-) (err error) {
-	return s.memoryStore.RevokeRefreshToken(ctx, requestID)
-}
-
-// RevokeAccessToken implements oauth2.TokenRevocationStorage.
-func (s *store) RevokeAccessToken(ctx context.Context, requestID string) error {
-	return s.memoryStore.RevokeAccessToken(ctx, requestID)
-}
-
-// RevokeRefreshToken implements oauth2.TokenRevocationStorage.
-func (s *store) RevokeRefreshToken(ctx context.Context, requestID string) error {
-	return s.memoryStore.RevokeRefreshToken(ctx, requestID)
-=======
-	return &fosite.Request{
-		Client:         client,
 		Session:        &data,
 		RequestedScope: data.Scopes,
 	}, nil
@@ -184,7 +97,6 @@ func (s *store) RevokeRefreshToken(ctx context.Context, requestID string) error 
 func (s *store) InvalidateAuthorizeCodeSession(ctx context.Context, code string) (err error) {
 	// Stateless - code is self-contained and single-use
 	return nil
->>>>>>> sashank/oauthserver/persist
 }
 
 // CreatePKCERequestSession implements pkce.PKCERequestStorage.
