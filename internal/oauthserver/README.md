@@ -35,14 +35,14 @@ The `/callback` request includes information needed to complete the PDS OAuth fl
 Habitat retrieves the `/authorize` params, the DPop key, and the PDS OAuth Flow state from the request cookie.
 Habitat calls auth.OAuthClient.ExchangeCode with the necessary arguments (DPop key, PDS OAuth Flow state, and authorization code) to retrieve the PDS Token.
 Using the `/authorize` params, it continues the Habitat OAuth Flow and redirects to the App with an authorization code.
-The PDS Token is persisted in memory and keyed by the authorization code.
+The PDS Token is encoded in the authorization code.
 
 ### 5. App issues a `/token` request
 The App now calls the `/token` endpoint to receive a Habitat Token.
-Habitat retrieves the PDS Token from memory using the request's authorization code.
-Habitat creates a Habitat Token and persists it along with the PDS Token to disk.
+Habitat retrieves the PDS Token from decoding the request's authorization code.
+Habitat creates a Habitat Token which encodes the PDS Token.
 Finally, it responds to the App with the Habitat Token.
 
 ### 6. App can now make authenticated resource requests to Habitat
-Whenever Habitat receieves a request for some resource, it can validate the attached Habitat Token and use it to retrieve the PDS Token. 
+Whenever Habitat receieves a request for some resource, it can validate the attached Habitat Token and decode it to get the PDS Token. 
 Habitat can then use the PDS Token in its handlers to make authenticated requests to the PDS.

@@ -97,12 +97,14 @@ func (s *strategy) ValidateAuthorizeCode(
 
 func (s *strategy) encrypt(data any) (string, error) {
 	var b bytes.Buffer
-	cbor.NewEncoder(&b).Encode(data)
+	if err := cbor.NewEncoder(&b).Encode(data); err != nil {
+		return "", fmt.Errorf("failed to encode data: %w", err)
+	}
 
 	var nonce [24]byte
 	_, err := io.ReadFull(rand.Reader, nonce[:])
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to generate nonce: %w", err)
 	}
 	return base64.RawURLEncoding.EncodeToString(
 		secretbox.Seal(nonce[:], b.Bytes(), &nonce, s.key),
@@ -112,7 +114,7 @@ func (s *strategy) encrypt(data any) (string, error) {
 func (s *strategy) decrypt(token string, data any) error {
 	b, err := base64.RawURLEncoding.DecodeString(token)
 	if err != nil {
-		return err
+		return fmt.Errorf("invalid token: %w", err)
 	}
 	var nonce [24]byte
 	copy(nonce[:], b[:24])
