@@ -4,15 +4,22 @@ package habitat
 
 // NetworkHabitatRepoListRecordsParams represents the input parameters for network.habitat.repo.listRecords
 type NetworkHabitatRepoListRecordsParams struct {
-	Repo       string `json:"repo"`
 	Collection string `json:"collection"`
-	Limit      int64  `json:"limit,omitempty"`
 	Cursor     string `json:"cursor,omitempty"`
+	Limit      int64  `json:"limit,omitempty"`
+	Repo       string `json:"repo"`
 	Reverse    bool   `json:"reverse,omitempty"`
 }
 
 // NetworkHabitatRepoListRecordsOutput represents the output for network.habitat.repo.listRecords
 type NetworkHabitatRepoListRecordsOutput struct {
-	Cursor  string        `json:"cursor,omitempty"`
-	Records []interface{} `json:"records"`
+	Cursor  string                                `json:"cursor,omitempty"`
+	Records []NetworkHabitatRepoListRecordsRecord `json:"records"`
+}
+
+// NetworkHabitatRepoListRecordsRecord represents a record object
+type NetworkHabitatRepoListRecordsRecord struct {
+	Cid   string      `json:"cid"`
+	Uri   string      `json:"uri"`
+	Value interface{} `json:"value"`
 }
