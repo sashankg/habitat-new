@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/eagraf/habitat-new/api/habitat"
+	_ "github.com/mattn/go-sqlite3"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -34,6 +36,91 @@ func TestSQLiteRepoPutAndGetRecord(t *testing.T) {
 		require.True(t, ok)
 		require.Equal(t, got[k], v)
 	}
+}
+
+func TestSQLiteRepoListRecords(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	require.NoError(t, err)
+	repo, err := NewSQLiteRepo(db)
+	require.NoError(t, err)
+	err = repo.putRecord(
+		"my-did",
+		"network.habitat.collection-1.key-1",
+		map[string]any{"data": "value"},
+		nil,
+	)
+	require.NoError(t, err)
+
+	err = repo.putRecord(
+		"my-did",
+		"network.habitat.collection-1.key-2",
+		map[string]any{"data": "value"},
+		nil,
+	)
+	require.NoError(t, err)
+
+	err = repo.putRecord(
+		"my-did",
+		"network.habitat.collection-2.key-2",
+		map[string]any{"data": "value"},
+		nil,
+	)
+	require.NoError(t, err)
+
+	records, err := repo.listRecords(
+		habitat.NetworkHabitatRepoListRecordsParams{
+			Repo:       "my-did",
+			Collection: "my-collection",
+		},
+		[]string{},
+		[]string{},
+	)
+	require.NoError(t, err)
+	require.Len(t, records, 0)
+
+	records, err = repo.listRecords(
+		habitat.NetworkHabitatRepoListRecordsParams{
+			Repo:       "my-did",
+			Collection: "my-collection",
+		},
+		[]string{"network.habitat.collection-1.key-1", "network.habitat.collection-1.key-2"},
+		[]string{},
+	)
+	require.NoError(t, err)
+	require.Len(t, records, 2)
+
+	records, err = repo.listRecords(
+		habitat.NetworkHabitatRepoListRecordsParams{
+			Repo:       "my-did",
+			Collection: "my-collection",
+		},
+		[]string{"network.habitat.collection-1.*"},
+		[]string{},
+	)
+	require.NoError(t, err)
+	require.Len(t, records, 2)
+
+	records, err = repo.listRecords(
+		habitat.NetworkHabitatRepoListRecordsParams{
+			Repo:       "my-did",
+			Collection: "my-collection",
+		},
+		[]string{"network.habitat.collection-1.*"},
+		[]string{"network.habitat.collection-1.key-1"},
+	)
+	require.NoError(t, err)
+	require.Len(t, records, 1)
+
+	records, err = repo.listRecords(
+		habitat.NetworkHabitatRepoListRecordsParams{
+			Repo:       "my-did",
+			Collection: "my-collection",
+		},
+		[]string{"network.habitat.*"},
+		[]string{"network.habitat.collection-1.key-1"},
+	)
+	require.NoError(t, err)
+	require.Len(t, records, 2)
 }
 
 func TestUploadAndGetBlob(t *testing.T) {

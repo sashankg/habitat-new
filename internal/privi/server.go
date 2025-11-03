@@ -219,6 +219,44 @@ func (s *Server) UploadBlob(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (s *Server) ListRecords(w http.ResponseWriter, r *http.Request) {
+	callerDID, ok := s.getAuthedUser(w, r)
+	if !ok {
+		return
+	}
+	var params habitat.NetworkHabitatRepoListRecordsParams
+	err := formDecoder.Decode(&params, r.URL.Query())
+	if err != nil {
+		utils.LogAndHTTPError(w, err, "parsing url", http.StatusBadRequest)
+		return
+	}
+
+	// Try handling both handles and dids
+	atid, err := syntax.ParseAtIdentifier(params.Repo)
+	if err != nil {
+		utils.LogAndHTTPError(w, err, "parsing at identifier", http.StatusBadRequest)
+		return
+	}
+
+	id, err := s.dir.Lookup(r.Context(), *atid)
+	if err != nil {
+		utils.LogAndHTTPError(w, err, "identity lookup", http.StatusBadRequest)
+		return
+	}
+
+	params.Repo = id.DID.String()
+	records, err := s.store.listRecords(params, callerDID)
+	if err != nil {
+		utils.LogAndHTTPError(w, err, "listing records", http.StatusInternalServerError)
+		return
+	}
+
+	if json.NewEncoder(w).Encode(records) != nil {
+		utils.LogAndHTTPError(w, err, "encoding response", http.StatusInternalServerError)
+		return
+	}
+}
+
 // HACK: trust did
 func (s *Server) getCaller(r *http.Request) (syntax.DID, error) {
 	authHeader := r.Header.Get("Authorization")

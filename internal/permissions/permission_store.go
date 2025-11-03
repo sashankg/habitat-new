@@ -28,6 +28,11 @@ type Store interface {
 		nsid string,
 	) error
 	ListReadPermissionsByLexicon(owner string) (map[string][]string, error)
+	ListReadPermissionsByUser(
+		owner string,
+		requester string,
+		nsid string,
+	) (allow []string, deny []string, err error)
 }
 
 type casbinStore struct {
@@ -120,6 +125,15 @@ func (p *casbinStore) ListReadPermissionsByLexicon(owner string) (map[string][]s
 	}
 
 	return res, nil
+}
+
+// ListReadPermissionsByUser implements Store.
+func (p *casbinStore) ListReadPermissionsByUser(
+	owner string,
+	requester string,
+	nsid string,
+) ([]string, []string, error) {
+	panic("unimplemented")
 }
 
 // Helpers to translate lexicon + record references into object type required by casbin

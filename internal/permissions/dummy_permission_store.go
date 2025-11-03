@@ -51,6 +51,15 @@ func (d *dummy) ListReadPermissionsByLexicon(owner string) (map[string][]string,
 	return nil, errors.ErrUnsupported
 }
 
+// ListReadPermissionsByUser implements Store.
+func (d *dummy) ListReadPermissionsByUser(
+	owner string,
+	requester string,
+	nsid string,
+) (allow []string, deny []string, err error) {
+	return nil, nil, errors.ErrUnsupported
+}
+
 // NewDummyStore returns a permissions store that always returns true
 func NewDummyStore() *dummy {
 	return &dummy{

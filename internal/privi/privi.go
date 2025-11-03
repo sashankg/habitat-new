@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/bluesky-social/indigo/atproto/syntax"
+	"github.com/eagraf/habitat-new/api/habitat"
 	"github.com/eagraf/habitat-new/internal/permissions"
 )
 
@@ -78,4 +79,20 @@ func (p *store) getRecord(
 	}
 
 	return p.repo.getRecord(string(targetDID), rkey)
+}
+
+func (p *store) listRecords(
+	params habitat.NetworkHabitatRepoListRecordsParams,
+	callerDID syntax.DID,
+) ([]record, error) {
+	allow, deny, err := p.permissions.ListReadPermissionsByUser(
+		params.Repo,
+		callerDID.String(),
+		params.Collection,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return p.repo.listRecords(params, allow, deny)
 }

@@ -16,6 +16,11 @@ import (
 	"github.com/rs/zerolog/log"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
+
+	"github.com/eagraf/habitat-new/api/habitat"
+	_ "github.com/mattn/go-sqlite3"
+
+	sq "github.com/Masterminds/squirrel"
 )
 
 // Persist private data within repos that mirror public repos.
@@ -193,4 +198,60 @@ func (r *sqliteRepo) getBlob(
 	}
 
 	return row.MimeType, row.Blob, nil
+}
+
+// listRecords implements repo.
+func (r *sqliteRepo) listRecords(
+	params habitat.NetworkHabitatRepoListRecordsParams,
+	allow []string,
+	deny []string,
+) ([]record, error) {
+	if len(allow) == 0 {
+		return []record{}, nil
+	}
+	query := sq.Select("json(record)").From("records").Where(sq.Eq{"did": params.Repo})
+
+	// Build OR conditions for allow list
+	allowOr := sq.Or{}
+	for _, a := range allow {
+		if strings.HasSuffix(a, "*") {
+			allowOr = append(allowOr, sq.Like{"rkey": strings.TrimSuffix(a, "*") + "%"})
+		} else {
+			allowOr = append(allowOr, sq.Eq{"rkey": a})
+		}
+	}
+	query = query.Where(allowOr)
+
+	// Build deny conditions - use NOT LIKE or != for each deny pattern
+	for _, d := range deny {
+		if strings.HasSuffix(d, "*") {
+			query = query.Where(sq.NotLike{"rkey": strings.TrimSuffix(d, "*") + "%"})
+		} else {
+			query = query.Where(sq.NotEq{"rkey": d})
+		}
+	}
+
+	if params.Cursor != "" {
+		query = query.Where(sq.Gt{"rkey": params.Cursor})
+	}
+	if params.Limit != 0 {
+		query = query.Limit(uint64(params.Limit))
+	}
+	rows, err := query.RunWith(r.db).Query()
+	if err != nil {
+		return nil, fmt.Errorf("query failed: %w", err)
+	}
+	records := []record{}
+	for rows.Next() {
+		var rec string
+		if err := rows.Scan(&rec); err != nil {
+			return nil, fmt.Errorf("scan failed: %w", err)
+		}
+		var record record
+		if err := json.Unmarshal([]byte(rec), &record); err != nil {
+			return nil, fmt.Errorf("unmarshal failed: %w", err)
+		}
+		records = append(records, record)
+	}
+	return records, nil
 }
