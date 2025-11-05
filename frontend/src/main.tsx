@@ -7,7 +7,7 @@ import reportWebVitals from "./reportWebVitals.ts";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AuthManager } from "./auth.ts";
 
-const authManager = new AuthManager("privi.dwelf-mirzam.ts.net", () => {
+const authManager = new AuthManager("habitat-new.onrender.com", () => {
   router.navigate({ to: "/oauth-login" });
 });
 const queryClient = new QueryClient();
