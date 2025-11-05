@@ -47,6 +47,13 @@ export const Route = createFileRoute("/")({
         icon: "💿",
         link: "/privi-test",
       },
+      {
+        id: "docs",
+        name: "Docs",
+        description: "Save docs to privi",
+        icon: "📃",
+        link: "/docs",
+      },
       ...filteredWebApps,
     ];
   },
