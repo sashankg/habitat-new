@@ -152,6 +152,9 @@ func (s *sqliteStore) ListReadPermissionsByUser(
 	requester string,
 	nsid string,
 ) ([]string, []string, error) {
+	if requester == owner {
+		return []string{fmt.Sprintf("%s.*", nsid)}, []string{}, nil
+	}
 	// Query all permissions for this grantee/owner combination
 	// that could match the given NSID
 	// We need to check:

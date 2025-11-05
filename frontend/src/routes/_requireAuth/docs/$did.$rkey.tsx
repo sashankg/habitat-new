@@ -1,14 +1,14 @@
 import { Editor, EditorContent, useEditor } from "@tiptap/react";
 import { createFileRoute } from "@tanstack/react-router";
 import StarterKit from "@tiptap/starter-kit";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 
 export const Route = createFileRoute("/_requireAuth/docs/$did/$rkey")({
   async loader({ context, params }) {
     const { did, rkey } = params;
     const response = await context.authManager.fetch(
-      `/xrpc/com.habitat.repo.getRecord?repo=${did}&collection=com.habitat.docs&rkey=${rkey}`,
+      `/xrpc/com.habitat.getRecord?repo=${did}&collection=com.habitat.docs&rkey=${rkey}`,
     );
 
     const data: {
@@ -25,11 +25,12 @@ export const Route = createFileRoute("/_requireAuth/docs/$did/$rkey")({
     const { did, rkey } = Route.useParams();
     const { value } = Route.useLoaderData();
     const { authManager } = Route.useRouteContext();
+    const [dirty, setDirty] = useState(false);
     const { mutate: save } = useMutation({
       mutationFn: async ({ editor }: { editor: Editor }) => {
         const heading = editor.$node("heading")?.textContent;
         authManager.fetch(
-          "/xrpc/com.habitat.repo.putRecord",
+          "/xrpc/com.habitat.putRecord",
           "POST",
           JSON.stringify({
             repo: did,
@@ -42,11 +43,13 @@ export const Route = createFileRoute("/_requireAuth/docs/$did/$rkey")({
           }),
         );
       },
+      onSuccess: () => setDirty(false),
     });
     // debounce
     const handleUpdate = useMemo(() => {
       let prevTimeout: number | undefined;
       return ({ editor }: { editor: Editor }) => {
+        setDirty(true);
         clearTimeout(prevTimeout);
         prevTimeout = setTimeout(() => {
           save({ editor });
@@ -60,9 +63,12 @@ export const Route = createFileRoute("/_requireAuth/docs/$did/$rkey")({
       editable: did === authManager.handle,
     });
     return (
-      <article>
-        <EditorContent editor={editor} />
-      </article>
+      <>
+        <article>
+          <EditorContent editor={editor} />
+        </article>
+        {dirty ? "🔄 Syncing" : "✅ Sycned"}
+      </>
     );
   },
 });

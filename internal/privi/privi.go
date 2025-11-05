@@ -53,7 +53,7 @@ func (p *store) putRecord(
 	validate *bool,
 ) error {
 	// It is assumed right now that if this endpoint is called, the caller wants to put a private record into privi.
-	return p.repo.putRecord(did, rkey, record, validate)
+	return p.repo.putRecord(did, fmt.Sprintf("%s.%s", collection, rkey), record, validate)
 }
 
 // getRecord checks permissions on callerDID and then passes through to `repo.getRecord`.
@@ -62,7 +62,7 @@ func (p *store) getRecord(
 	rkey string,
 	targetDID syntax.DID,
 	callerDID syntax.DID,
-) (record, error) {
+) (*Record, error) {
 	// Run permissions before returning to the user
 	authz, err := p.permissions.HasPermission(
 		callerDID.String(),
@@ -78,13 +78,13 @@ func (p *store) getRecord(
 		return nil, ErrUnauthorized
 	}
 
-	return p.repo.getRecord(string(targetDID), rkey)
+	return p.repo.getRecord(string(targetDID), fmt.Sprintf("%s.%s", collection, rkey))
 }
 
 func (p *store) listRecords(
 	params habitat.NetworkHabitatRepoListRecordsParams,
 	callerDID syntax.DID,
-) ([]record, error) {
+) ([]Record, error) {
 	allow, deny, err := p.permissions.ListReadPermissionsByUser(
 		params.Repo,
 		callerDID.String(),

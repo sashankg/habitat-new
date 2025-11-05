@@ -2,7 +2,6 @@ package privi
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -19,8 +18,6 @@ import (
 
 	"github.com/eagraf/habitat-new/api/habitat"
 	_ "github.com/mattn/go-sqlite3"
-
-	sq "github.com/Masterminds/squirrel"
 )
 
 // Persist private data within repos that mirror public repos.
@@ -66,9 +63,8 @@ func getMaxBlobSize(db *gorm.DB) (int, error) {
 }
 
 type Record struct {
-	gorm.Model
-	Did  string
-	Rkey string
+	Did  string `gorm:"primaryKey"`
+	Rkey string `gorm:"primaryKey"`
 	Rec  string
 }
 type Blob struct {
@@ -85,14 +81,14 @@ func NewSQLiteRepo(db *gorm.DB) (*sqliteRepo, error) {
 		return nil, err
 	}
 
-	// maxBlobSize, err := getMaxBlobSize(db)
-	// if err != nil {
-	// 	return nil, err
-	// }
+	maxBlobSize, err := getMaxBlobSize(db)
+	if err != nil {
+		return nil, err
+	}
 
 	return &sqliteRepo{
-		db: db,
-		// maxBlobSize: maxBlobSize,
+		db:          db,
+		maxBlobSize: maxBlobSize,
 	}, nil
 }
 
@@ -113,7 +109,8 @@ func (r *sqliteRepo) putRecord(did string, rkey string, rec record, validate *bo
 	record := Record{Did: did, Rkey: rkey, Rec: string(bytes)}
 	// Always put (even if something exists).
 	return gorm.G[Record](
-		r.db.Clauses(clause.OnConflict{UpdateAll: true}),
+		r.db,
+		clause.OnConflict{UpdateAll: true},
 	).Create(context.Background(), &record)
 }
 
@@ -122,24 +119,17 @@ var (
 	ErrMultipleRecordsFound = fmt.Errorf("multiple records found for desired query")
 )
 
-func (r *sqliteRepo) getRecord(did string, rkey string) (record, error) {
+func (r *sqliteRepo) getRecord(did string, rkey string) (*Record, error) {
 	row, err := gorm.G[Record](
 		r.db,
 	).Where("did = ? and rkey = ?", did, rkey).
 		First(context.Background())
-	if errors.Is(err, sql.ErrNoRows) {
+	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, ErrRecordNotFound
 	} else if err != nil {
 		return nil, err
 	}
-
-	var record record
-	err = json.Unmarshal([]byte(row.Rec), &record)
-	if err != nil {
-		return nil, err
-	}
-
-	return record, nil
+	return &row, nil
 }
 
 type blob struct {
@@ -164,7 +154,8 @@ func (r *sqliteRepo) uploadBlob(did string, data []byte, mimeType string) (*blob
 	}
 
 	err = gorm.G[Blob](
-		r.db.Clauses(clause.OnConflict{UpdateAll: true}),
+		r.db,
+		clause.OnConflict{UpdateAll: true},
 	).Create(context.Background(), &Blob{
 		Did:      did,
 		Cid:      cid.String(),
@@ -205,53 +196,56 @@ func (r *sqliteRepo) listRecords(
 	params habitat.NetworkHabitatRepoListRecordsParams,
 	allow []string,
 	deny []string,
-) ([]record, error) {
+) ([]Record, error) {
 	if len(allow) == 0 {
-		return []record{}, nil
+		return []Record{}, nil
 	}
-	query := sq.Select("json(record)").From("records").Where(sq.Eq{"did": params.Repo})
+
+	query := gorm.G[Record](r.db.Debug()).Where("did = ?", params.Repo)
 
 	// Build OR conditions for allow list
-	allowOr := sq.Or{}
-	for _, a := range allow {
-		if strings.HasSuffix(a, "*") {
-			allowOr = append(allowOr, sq.Like{"rkey": strings.TrimSuffix(a, "*") + "%"})
-		} else {
-			allowOr = append(allowOr, sq.Eq{"rkey": a})
+	if len(allow) > 0 {
+		allowConditions := r.db.Where("1 = 0") // Start with false condition
+		for _, a := range allow {
+			if strings.HasSuffix(a, "*") {
+				// Wildcard match
+				prefix := strings.TrimSuffix(a, "*")
+				allowConditions = allowConditions.Or("rkey LIKE ?", prefix+"%")
+			} else {
+				// Exact match
+				allowConditions = allowConditions.Or("rkey = ?", a)
+			}
 		}
+		query = query.Where(allowConditions)
 	}
-	query = query.Where(allowOr)
 
 	// Build deny conditions - use NOT LIKE or != for each deny pattern
 	for _, d := range deny {
 		if strings.HasSuffix(d, "*") {
-			query = query.Where(sq.NotLike{"rkey": strings.TrimSuffix(d, "*") + "%"})
+			prefix := strings.TrimSuffix(d, "*")
+			query = query.Where("rkey NOT LIKE ?", prefix+"%")
 		} else {
-			query = query.Where(sq.NotEq{"rkey": d})
+			query = query.Where("rkey != ?", d)
 		}
 	}
 
+	// Cursor-based pagination
 	if params.Cursor != "" {
-		query = query.Where(sq.Gt{"rkey": params.Cursor})
+		query = query.Where("rkey > ?", params.Cursor)
 	}
+
+	// Limit
 	if params.Limit != 0 {
-		query = query.Limit(uint64(params.Limit))
+		query = query.Limit(int(params.Limit))
 	}
-	rows, err := query.RunWith(r.db).Query()
+
+	// Order by rkey for consistent pagination
+	query = query.Order("rkey ASC")
+
+	// Execute query
+	rows, err := query.Find(context.Background())
 	if err != nil {
 		return nil, fmt.Errorf("query failed: %w", err)
 	}
-	records := []record{}
-	for rows.Next() {
-		var rec string
-		if err := rows.Scan(&rec); err != nil {
-			return nil, fmt.Errorf("scan failed: %w", err)
-		}
-		var record record
-		if err := json.Unmarshal([]byte(rec), &record); err != nil {
-			return nil, fmt.Errorf("unmarshal failed: %w", err)
-		}
-		records = append(records, record)
-	}
-	return records, nil
+	return rows, nil
 }

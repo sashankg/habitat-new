@@ -10,3 +10,9 @@ type NetworkHabitatRepoPutRecordInput struct {
 	Rkey       string                 `json:"rkey"`
 	Validate   bool                   `json:"validate,omitempty"`
 }
+
+// NetworkHabitatRepoPutRecordOutput represents the output for network.habitat.repo.putRecord
+type NetworkHabitatRepoPutRecordOutput struct {
+	Uri              string `json:"uri"`
+	ValidationStatus string `json:"validationStatus,omitempty"`
+}

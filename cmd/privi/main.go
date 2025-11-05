@@ -58,6 +58,7 @@ func run(_ context.Context, cmd *cli.Command) error {
 	// privi routes
 	mux.HandleFunc("/xrpc/com.habitat.putRecord", priviServer.PutRecord)
 	mux.HandleFunc("/xrpc/com.habitat.getRecord", priviServer.GetRecord)
+	mux.HandleFunc("/xrpc/com.habitat.listRecords", priviServer.ListRecords)
 	mux.HandleFunc("/xrpc/network.habitat.uploadBlob", priviServer.UploadBlob)
 	mux.HandleFunc("/xrpc/com.habitat.listPermissions", priviServer.ListPermissions)
 	mux.HandleFunc("/xrpc/com.habitat.addPermission", priviServer.AddPermission)
@@ -207,7 +208,8 @@ func corsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, habitat-auth-method, User-Agent")
+		w.Header().
+			Set("Access-Control-Allow-Headers", "Content-Type, Authorization, habitat-auth-method, User-Agent")
 		w.Header().Set("Access-Control-Max-Age", "86400") // Cache preflight for 24 hours
 
 		// Handle preflight OPTIONS request

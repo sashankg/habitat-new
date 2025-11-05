@@ -5,7 +5,7 @@ export const Route = createFileRoute("/_requireAuth/docs/")({
   async loader({ context }) {
     const did = context.authManager.handle;
     const response = await context.authManager.fetch(
-      `/xrpc/com.habitat.repo.listRecords?repo=${did}&collection=com.habitat.docs`,
+      `/xrpc/com.habitat.listRecords?repo=${did}&collection=com.habitat.docs`,
     );
     const data: {
       records: {
@@ -29,7 +29,7 @@ export const Route = createFileRoute("/_requireAuth/docs/")({
           onSubmit={form.handleSubmit(async () => {
             const did = authManager.handle;
             const response = await authManager.fetch(
-              `/xrpc/com.habitat.repo.createRecord?repo=${did}`,
+              `/xrpc/com.habitat.putRecord`,
               "POST",
               JSON.stringify({
                 repo: did,
