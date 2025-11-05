@@ -12,6 +12,8 @@ const authManager = new AuthManager("privi.dwelf-mirzam.ts.net", () => {
 });
 const queryClient = new QueryClient();
 
+const domainUrl = new URL(`https://${__DOMAIN__}`);
+
 // Create a new router instance
 const router = createRouter({
   routeTree,
@@ -23,6 +25,7 @@ const router = createRouter({
   scrollRestoration: true,
   defaultStructuralSharing: true,
   defaultPreloadStaleTime: 0,
+  basepath: domainUrl.pathname,
 });
 
 // Register the router instance for type safety
