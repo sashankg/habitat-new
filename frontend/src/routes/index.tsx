@@ -3,17 +3,21 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/")({
   async loader() {
-    const webAppInstallations = await getWebApps();
-    const filteredWebApps = webAppInstallations
-      .filter((app: any) => app.driver === "web")
-      .map((app: any) => ({
-        id: app.id,
-        name: app.name,
-        description: "No description available",
-        icon: "🌐", // Default icon for web apps
-        link: (app.url as string) || "#",
-      }));
-
+    let filteredWebApps: any[] = [];
+    try {
+      const webAppInstallations = await getWebApps();
+      filteredWebApps = webAppInstallations
+        .filter((app: any) => app.driver === "web")
+        .map((app: any) => ({
+          id: app.id,
+          name: app.name,
+          description: "No description available",
+          icon: "🌐", // Default icon for web apps
+          link: (app.url as string) || "#",
+        }));
+    } catch (e) {
+      console.error(e);
+    }
     return [
       {
         id: "my-server",
