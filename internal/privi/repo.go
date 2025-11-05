@@ -81,14 +81,14 @@ func NewSQLiteRepo(db *gorm.DB) (*sqliteRepo, error) {
 		return nil, err
 	}
 
-	maxBlobSize, err := getMaxBlobSize(db)
-	if err != nil {
-		return nil, err
-	}
+	// maxBlobSize, err := getMaxBlobSize(db)
+	// if err != nil {
+	// 	return nil, err
+	// }
 
 	return &sqliteRepo{
-		db:          db,
-		maxBlobSize: maxBlobSize,
+		db: db,
+		// maxBlobSize: maxBlobSize,
 	}, nil
 }
 
