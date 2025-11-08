@@ -5,7 +5,10 @@ export default (domain: string) =>
       client_id: `https://${domain}/client-metadata.json`,
       client_name: "Habitat",
       client_uri: `https://${domain}`,
-      redirect_uris: [`https://${domain}/oauth-login`],
+      redirect_uris: [
+         `https://${domain}/oauth-login`,
+         `https://${domain}/#/oauth-login`,
+      ],
       scope: "atproto transition:generic",
       grant_types: ["authorization_code", "refresh_token"],
       response_types: ["code"],
