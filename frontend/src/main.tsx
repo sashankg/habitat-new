@@ -29,7 +29,7 @@ const router = createRouter({
   scrollRestoration: true,
   defaultStructuralSharing: true,
   defaultPreloadStaleTime: 0,
-  basepath: domainUrl.pathname,
+  basepath: __HASH_ROUTING__ ? undefined : domainUrl.pathname,
   history: __HASH_ROUTING__ ? createHashHistory() : undefined,
 });
 
