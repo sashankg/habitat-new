@@ -26,7 +26,9 @@ export const Route = createFileRoute("/oauth-login")({
         const handle = formData.get("handle") as string;
         const url = authManager.loginUrl(
           handle,
-          `https://${__DOMAIN__}/oauth-login`,
+          __HASH_ROUTING__
+            ? `https://${__DOMAIN__}/#/oauth-login`
+            : `https://${__DOMAIN__}/oauth-login`,
         );
         window.location.href = url.toString();
       },
